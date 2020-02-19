@@ -208,7 +208,6 @@ void loop() {
 
 	}
 	readHanPort();
-	ws.loop();
 	delay(1); // Needed for auto modem sleep
 }
 

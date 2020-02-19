@@ -16,18 +16,18 @@
 
 #if defined(ESP8266)
 	#include <ESP8266WiFi.h>
-	#include <ESP8266WebServer.h>
 #elif defined(ESP32) // ARDUINO_ARCH_ESP32
 	#include <WiFi.h>
-	#include <WebServer.h>
 #else
 	#warning "Unsupported board type"
 #endif
 
+#include <ESPAsyncWebServer.h>
+#include "StringStream.h"
+
 class AmsWebServer {
 public:
     void setup(AmsConfiguration* config, Stream* debugger, MQTTClient* mqtt);
-    void loop();
 	void setJson(StaticJsonDocument<1024> json);
 
 private:
@@ -40,24 +40,22 @@ private:
 	int p, po;
 	double u1, u2, u3, i1, i2, i3, tpi, tpo, tqi, tqo;
 
-#if defined(ESP8266)
-	ESP8266WebServer server;
-#elif defined(ESP32) // ARDUINO_ARCH_ESP32
-	WebServer server;
-#endif
+	AsyncWebServer server = AsyncWebServer(80);
+	String processor(const String& var);
 
-	bool checkSecurity(byte level);
+	bool checkSecurity(AsyncWebServerRequest *request, byte level);
 
-	void indexHtml();
-	void configMeterHtml();
-	void configWifiHtml();
-	void configMqttHtml();
-	void configWebHtml();
-	void bootCss();
-	void gaugemeterJs();
-    void dataJson();
+	void indexHtml(AsyncWebServerRequest *request);
+	void configMeterHtml(AsyncWebServerRequest *request);
+	void configWifiHtml(AsyncWebServerRequest *request);
+	void configMqttHtml(AsyncWebServerRequest *request);
+	void configWebHtml(AsyncWebServerRequest *request);
+	void bootCss(AsyncWebServerRequest *request);
+	void gaugemeterJs(AsyncWebServerRequest *request);
+	void gaugemeterCss(AsyncWebServerRequest *request);
+    void dataJson(AsyncWebServerRequest *request);
 
-	void handleSave();
+	void handleSave(AsyncWebServerRequest *request);
 
    	size_t print(const char* text);
 	size_t println(const char* text);

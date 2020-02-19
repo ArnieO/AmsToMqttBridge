@@ -23,7 +23,7 @@ for filename in os.listdir(webroot):
     with open(dstfile, "w") as dst:
         dst.write("const char ")
         dst.write(varname)
-        dst.write("[] PROGMEM = R\"==\"==(\n")
+        dst.write("[] PROGMEM = R\"==\"==(")
         with open(srcfile, "r") as src:
             for line in src.readlines():
                 dst.write(line)

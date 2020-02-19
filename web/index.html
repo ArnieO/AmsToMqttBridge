@@ -4,56 +4,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AMS reader</title>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <link rel="stylesheet" type="text/css" href="boot.css"/>
+    <link rel="stylesheet" type="text/css" href="%BOOTSTRAP_CSS%"/>
+    <link rel="stylesheet" type="text/css" href="gaugemeter.css"/>
     <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
     <script src="gaugemeter.js"></script>
-    <style>
-    .GaugeMeter {
-        position: Relative;
-        text-align: Center;
-        overflow: Hidden;
-        cursor: Default;
-        display: inline-block;
-    }
-
-    .GaugeMeter SPAN, .GaugeMeter B {
-        width: 54%;
-        position: Absolute;
-        text-align: Center;
-        display: Inline-Block;
-        color: RGBa(0,0,0,.8);
-        font-weight: 100;
-        font-family: "Open Sans", Arial;
-        overflow: Hidden;
-        white-space: NoWrap;
-        text-overflow: Ellipsis;
-        margin: 0 23%;
-    }
-
-    .GaugeMeter[data-style="Semi"] B {
-        width: 80%;
-        margin: 0 10%;
-    }
-
-    .GaugeMeter S, .GaugeMeter U {
-        text-decoration: None;
-        font-size: .60em;
-        font-weight: 200;
-        opacity: .6;
-    }
-
-    .GaugeMeter B {
-        color: #000;
-        font-weight: 200;
-        opacity: .8;
-    }
-    </style>
 </head>
 <body class="bg-light">
 <main role="main" class="container">
     <header class="navbar navbar-expand navbar-dark flex-column flex-md-row rounded mt-2 mb-4" style="background-color: var(--purple);">
-        <a href="/" class=""><h6 class="navbar-brand">AMS reader <small>${version}</small></h6></a>
+        <a href="/" class=""><h6 class="navbar-brand">AMS reader <small>%VERSION%</small></h6></a>
         <div class="navbar-nav-scroll">
             <ul class="navbar-nav bd-navbar-nav flex-row">
                 <li class="nav-item">
@@ -90,7 +50,7 @@
             <div class="col-md-3">
                 <div class="text-center">
                     <div id="P" class="SimpleMeter" style="display: inline;">
-                        ${data.P} W
+                        %DATA_P% W
                     </div>
                     <div id="consumptionMeter" class="GaugeMeter rounded"
                         style="display: none;"
@@ -105,43 +65,43 @@
                 </div>
             </div>
             <div class="col-md-3">
-                <div id="U1-row" class="row" style="display: ${display.P1};">
+                <div id="U1-row" class="row" style="display: %DISPLAY_P1%;">
                     <div class="col-2">P1</div>
-                    <div class="col-5 text-right"><span id="U1">${data.U1}</span> V</div>
-                    <div class="col-5 text-right"><span id="I1">${data.I1}</span> A</div>
+                    <div class="col-5 text-right"><span id="U1">%DATA_U1%</span> V</div>
+                    <div class="col-5 text-right"><span id="I1">%DATA_U1%</span> A</div>
                 </div>
-                <div id="U2-row" class="row" style="display: ${display.P2};">
+                <div id="U2-row" class="row" style="display: %DISPLAY_P2%;">
                     <div class="col-2">P2</div>
-                    <div class="col-5 text-right"><span id="U2">${data.U2}</span> V</div>
-                    <div class="col-5 text-right"><span id="I2">${data.I2}</span> A</div>
+                    <div class="col-5 text-right"><span id="U2">%DATA_U2%</span> V</div>
+                    <div class="col-5 text-right"><span id="I2">%DATA_U2%</span> A</div>
                 </div>
-                <div id="U3-row" class="row" style="display: ${display.P3};">
+                <div id="U3-row" class="row" style="display: %DISPLAY_P3%;">
                     <div class="col-2">P3</div>
-                    <div class="col-5 text-right"><span id="U3">${data.U3}</span> V</div>
-                    <div class="col-5 text-right"><span id="I3">${data.I3}</span> A</div>
+                    <div class="col-5 text-right"><span id="U3">%DATA_U3%</span> V</div>
+                    <div class="col-5 text-right"><span id="I3">%DATA_U3%</span> A</div>
                 </div>
                 <hr/>
-                <div id="tPI-row" class="row" style="display: ${display.accumulative};">
+                <div id="tPI-row" class="row" style="display: %DISPLAY_ACCUMULATIVE%;">
                     <div class="col-6">Active in</div>
-                    <div class="col-6 text-right"><span id="tPI">${data.tPI}</span> kWh</div>
+                    <div class="col-6 text-right"><span id="tPI">%DATA_TPI%</span> kWh</div>
                 </div>
-                <div id="tPO-row" class="row" style="display: ${display.accumulative};">
+                <div id="tPO-row" class="row" style="display: %DISPLAY_ACCUMULATIVE%;">
                     <div class="col-6">Active out</div>
-                    <div class="col-6 text-right"><span id="tPO">${data.tPO}</span> kWh</div>
+                    <div class="col-6 text-right"><span id="tPO">%DATA_TPO%</span> kWh</div>
                 </div>
-                <div id="tQI-row" class="row" style="display: ${display.accumulative};">
+                <div id="tQI-row" class="row" style="display: %DISPLAY_ACCUMULATIVE%;">
                     <div class="col-6">Reactive in</div>
-                    <div class="col-6 text-right"><span id="tQI">${data.tQI}</span> kvarh</div>
+                    <div class="col-6 text-right"><span id="tQI">%DATA_TQI%</span> kvarh</div>
                 </div>
-                <div id="tQO-row" class="row" style="display: ${display.accumulative};">
+                <div id="tQO-row" class="row" style="display: %DISPLAY_ACCUMULATIVE%;">
                     <div class="col-6">Reactive out</div>
-                    <div class="col-6 text-right"><span id="tQO">${data.tQO}</span> kvarh</div>
+                    <div class="col-6 text-right"><span id="tQO">%DATA_TQO%</span> kvarh</div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="text-center" style="display: ${display.production};">
+                <div class="text-center" style="display: %DISPLAY_PRODUCTION%;">
                     <div id="P" class="SimpleMeter" style="display: inline;">
-                        ${data.PO} W
+                        %DATA_PO% W
                     </div>
                     <div id="productionMeter" class="GaugeMeter rounded"
                         style="display: none;"
@@ -159,28 +119,28 @@
                 <hr class="d-md-inline"/>
                 <div class="row">
                     <div class="col-6">Vcc</div>
-                    <div class="col-6 text-right"><span id="vcc">${vcc}</span> V</div>
+                    <div class="col-6 text-right"><span id="vcc">%VCC%</span> V</div>
                 </div>
-                <div class="row" style="display: ${display.temp};">
+                <div class="row" style="display: %DISPLAY_TEMP%;">
                     <div class="col-6">Temperature</div>
-                    <div class="col-6 text-right"><span id="temp">${temp}</span> °C</div>
+                    <div class="col-6 text-right"><span id="temp">%TEMP%</span> °C</div>
                 </div>
                 <div class="row" style="display: none;">
                     <div class="col-6">Uptime</div>
-                    <div class="col-6 text-right"><span id="currentMillis">${currentMillis}</span></div>
+                    <div class="col-6 text-right"><span id="currentMillis"></span></div>
                 </div>
                 <hr/>
                 <div class="row">
                     <div class="col-6">SSID</div>
-                    <div class="col-6 text-right"><span id="ssid">${wifi.ssid}</span></div>
+                    <div class="col-6 text-right"><span id="ssid">%WIFI_SSID%</span></div>
                 </div>
                 <div class="row">
                     <div class="col-6">Channel</div>
-                    <div class="col-6 text-right"><span id="channel">${wifi.channel}</span></div>
+                    <div class="col-6 text-right"><span id="channel">%WIFI_CHANNEL%</span></div>
                 </div>
                 <div class="row">
                     <div class="col-6">RSSI</div>
-                    <div class="col-6 text-right"><span id="rssi">${wifi.rssi}</span> dBm</div>
+                    <div class="col-6 text-right"><span id="rssi">%WIFI_RSSI%</span> dBm</div>
                 </div>
                 <hr class="d-none mqtt-error mqtt-error-1 mqtt-error-2 mqtt-error-3 mqtt-error-4 mqtt-error-5 mqtt-error-6 mqtt-error-7 mqtt-error-8 mqtt-error-9 mqtt-error-10 mqtt-error-11 mqtt-error-12 mqtt-error-13"/>
                 <div class="d-none badge badge-danger mqtt-error mqtt-error-1 mqtt-error-2 mqtt-error-5 mqtt-error-6 mqtt-error-7 mqtt-error-8 mqtt-error-9 mqtt-error-12">MQTT communication error (<span id="mqtt-lastError">-</span>)</div>
@@ -217,7 +177,7 @@ var setStatus = function(id, status) {
     item.addClass('badge badge-' + status);
 };
 
-var interval = 10000;
+var interval = 5000;
 var fetch = function() {
     $.ajax({
         url: '/data.json',
