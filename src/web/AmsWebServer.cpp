@@ -517,9 +517,7 @@ void AmsWebServer::handleSave(AsyncWebServerRequest *request) {
 			response->addHeader("Expires", "-1");
 			request->send(response);
 
-			yield();
 			println("Wifi config changed, rebooting");
-			delay(1000);
 #if defined(ESP8266)
 			ESP.reset();
 #elif defined(ESP32)
