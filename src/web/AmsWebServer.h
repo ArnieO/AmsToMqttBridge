@@ -60,11 +60,16 @@ private:
 
 	void indexHtml();
 	void applicationJs();
+	void temperature();
+	void temperaturePost();
 	void configMeterHtml();
 	void configWifiHtml();
 	void configMqttHtml();
 	void configWebHtml();
 	void configDomoticzHtml();
+	void configNtpHtml();
+	void configGpioHtml();
+	void configDebugHtml();
 	void bootCss();
 	void gaugemeterJs();
 	void githubSvg();
@@ -73,7 +78,6 @@ private:
 	void handleSetup();
 	void handleSave();
 
-	void configSystemHtml();
 	String getSerialSelectOptions(int selected);
 	void firmwareHtml();
 	void firmwareUpload();
@@ -100,6 +104,9 @@ private:
 	void factoryResetPost();
 
 	void notFound();
+
+	String toHex(uint8_t* in, uint8_t size);
+	uint8_t* fromHex(String in, uint8_t size);
 
 	void printD(String fmt, ...);
 	void printI(String fmt, ...);

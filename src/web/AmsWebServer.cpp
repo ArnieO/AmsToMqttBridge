@@ -12,7 +12,9 @@
 #include "root/configmqtt_html.h"
 #include "root/configweb_html.h"
 #include "root/configdomoticz_html.h"
-#include "root/configsystem_html.h"
+#include "root/ntp_html.h"
+#include "root/gpio_html.h"
+#include "root/debugging_html.h"
 #include "root/restartwait_html.h"
 #include "root/boot_css.h"
 #include "root/gaugemeter_js.h"
@@ -20,8 +22,12 @@
 #include "root/upload_html.h"
 #include "root/delete_html.h"
 #include "root/reset_html.h"
+#include "root/temperature_head_html.h"
+#include "root/temperature_row_html.h"
+#include "root/temperature_none_html.h"
+#include "root/temperature_foot_html.h"
 
-#include "Base64.h"
+#include "base64.h"
 
 AmsWebServer::AmsWebServer(RemoteDebug* Debug, HwTools* hw) {
 	this->debugger = Debug;
@@ -35,6 +41,8 @@ void AmsWebServer::setup(AmsConfiguration* config, MQTTClient* mqtt) {
 	server.on("/", HTTP_GET, std::bind(&AmsWebServer::indexHtml, this));
 	server.on("/", HTTP_POST, std::bind(&AmsWebServer::handleSetup, this));
 	server.on("/application.js", HTTP_GET, std::bind(&AmsWebServer::applicationJs, this));
+	server.on("/temperature", HTTP_GET, std::bind(&AmsWebServer::temperature, this));
+	server.on("/temperature", HTTP_POST, std::bind(&AmsWebServer::temperaturePost, this));
 	server.on("/config-meter", HTTP_GET, std::bind(&AmsWebServer::configMeterHtml, this));
 	server.on("/config-wifi", HTTP_GET, std::bind(&AmsWebServer::configWifiHtml, this));
 	server.on("/config-mqtt", HTTP_GET, std::bind(&AmsWebServer::configMqttHtml, this));
@@ -47,7 +55,10 @@ void AmsWebServer::setup(AmsConfiguration* config, MQTTClient* mqtt) {
 
 	server.on("/save", HTTP_POST, std::bind(&AmsWebServer::handleSave, this));
 
-	server.on("/config-system", HTTP_GET, std::bind(&AmsWebServer::configSystemHtml, this));
+	server.on("/ntp", HTTP_GET, std::bind(&AmsWebServer::configNtpHtml, this));
+	server.on("/gpio", HTTP_GET, std::bind(&AmsWebServer::configGpioHtml, this));
+	server.on("/debugging", HTTP_GET, std::bind(&AmsWebServer::configDebugHtml, this));
+
 	server.on("/firmware", HTTP_GET, std::bind(&AmsWebServer::firmwareHtml, this));
 	server.on("/firmware", HTTP_POST, std::bind(&AmsWebServer::uploadPost, this), std::bind(&AmsWebServer::firmwareUpload, this));
 	server.on("/upgrade", HTTP_GET, std::bind(&AmsWebServer::firmwareDownload, this));
@@ -97,15 +108,9 @@ bool AmsWebServer::checkSecurity(byte level) {
 
 		String providedPwd = server.header("Authorization");
 		providedPwd.replace("Basic ", "");
-		char inputString[providedPwd.length()];
-		providedPwd.toCharArray(inputString, providedPwd.length()+1);
 
-		int inputStringLength = sizeof(inputString);
-		int decodedLength = Base64.decodedLength(inputString, inputStringLength);
-		char decodedString[decodedLength];
-		Base64.decode(decodedString, inputString, inputStringLength);
-		printD("Received auth: %s", decodedString);
-		access = String(decodedString).equals(expectedAuth);
+		String expectedBase64 = base64::encode(expectedAuth);
+		access = providedPwd.equals(expectedBase64);
 	}
 
 	if(!access) {
@@ -121,6 +126,82 @@ bool AmsWebServer::checkSecurity(byte level) {
 	return access;
 }
 
+void AmsWebServer::temperature() {
+	printD("Serving /temperature.html over http...");
+
+	server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+	server.sendHeader("Pragma", "no-cache");
+	server.sendHeader("Expires", "-1");
+
+	String html;
+	int c = hw->getTempSensorCount();
+
+	int start = server.hasArg("start") && !server.arg("start").isEmpty() ? server.arg("start").toInt() : 0;
+	int end = min(start + 4, c);
+
+	for(int i = start; i < end; i++) {
+		TempSensorData* data = hw->getTempSensorData(i);
+		
+		String row = String((const __FlashStringHelper*) TEMPERATURE_ROW_HTML);
+		row.replace("${index}", String(i-start, DEC));
+		row.replace("${address}", toHex(data->address, 8));
+		row.replace("${name}", data->name);
+		row.replace("${common}", data->common ? "checked" : "");
+		row.replace("${value}", data->lastRead > -85 ? String(data->lastRead, 1) : "N/A");
+
+		html += row;
+	}
+
+	if(c == 0) {
+		html += String((const __FlashStringHelper*) TEMPERATURE_NONE_HTML);
+	}
+
+	if(start > 0 || end < c) {
+		html += "<div class=\"row\"><div class=\"col-6\">";
+		if(start > 0) {
+			html += "<a href=\"?start=";
+			html += String(start-4, DEC);
+			html += "\" class=\"btn btn-sm btn-outline-secondary\">previous</a>";
+		}
+		html += "</div><div class=\"col-6 text-right\">";
+		if(end < c) {
+			html += "<a href=\"?start=";
+			html += String(end, DEC);
+			html += "\" class=\"btn btn-sm btn-outline-secondary\">next</a>";
+		}
+		html += "</div></div>";
+	}
+
+	server.setContentLength(html.length() + HEAD_HTML_LEN + TEMPERATURE_HEAD_HTML_LEN + FOOT_HTML_LEN + TEMPERATURE_FOOT_HTML_LEN);
+	server.send_P(200, "text/html", HEAD_HTML);
+	server.sendContent_P(TEMPERATURE_HEAD_HTML);
+	server.sendContent(html);
+	server.sendContent_P(TEMPERATURE_FOOT_HTML);
+	server.sendContent_P(FOOT_HTML);
+}
+
+void AmsWebServer::temperaturePost() {
+	int start = server.hasArg("start") && !server.arg("start").isEmpty() ? server.arg("start").toInt() : 0;
+	for(int i = 0; i < 4; i++) {
+		if(!server.hasArg("sensor" + String(i, DEC))) break;
+		String address  = server.arg("sensor" + String(i, DEC));
+		String name = server.arg("sensor" + String(i, DEC) + "name");
+		bool common = server.hasArg("sensor" + String(i, DEC) + "common") && server.arg("sensor" + String(i, DEC) + "common") == "true";
+		config->updateTempSensorConfig(fromHex(address, 8), name.c_str(), common);
+	}
+
+	if(config->save()) {
+		server.sendHeader("Location", String("/temperature?start=") + String(start, DEC), true);
+		server.send (302, "text/plain", "");
+
+		uint8_t c = config->getTempSensorCount();
+		for(int i = 0; i < c; i++) {
+			TempSensorConfig* tsc = config->getTempSensorConfig(i);
+			hw->confTempSensor(tsc->address, tsc->name, tsc->common);
+		}
+	}
+}
+
 void AmsWebServer::indexHtml() {
 	printD("Serving /index.html over http...");
 
@@ -133,7 +214,7 @@ void AmsWebServer::indexHtml() {
 		for(int i = 0; i<255; i++) {
 			html.replace("${config.boardType" + String(i) + "}", config->getBoardType() == i ? "selected"  : "");
 		}
-		for(int i = 0; i<4; i++) {
+		for(int i = 0; i<5; i++) {
 			html.replace("${config.meterType" + String(i) + "}", config->getMeterType() == i ? "selected"  : "");
 		}
 		html.replace("${config.wifiSsid}", config->getWifiSsid());
@@ -224,7 +305,7 @@ void AmsWebServer::configMeterHtml() {
 	server.sendHeader("Pragma", "no-cache");
 
 	html.replace("${config.meterType}", String(config->getMainFuse()));
-	for(int i = 0; i<4; i++) {
+	for(int i = 0; i<5; i++) {
 		html.replace("${config.meterType" + String(i) + "}", config->getMeterType() == i ? "selected"  : "");
 	}
 	html.replace("${config.distributionSystem}", String(config->getDistributionSystem()));
@@ -236,6 +317,15 @@ void AmsWebServer::configMeterHtml() {
 		html.replace("${config.mainFuse" + String(i) + "}", config->getMainFuse() == i ? "selected"  : "");
 	}
 	html.replace("${config.productionCapacity}", String(config->getProductionCapacity()));
+
+	String encryptionKeyHex = "0x";
+	encryptionKeyHex += toHex(config->getMeterEncryptionKey(), 16);
+	html.replace("${config.meterEncryptionKey}", encryptionKeyHex);
+
+	String authenticationKeyHex = "0x";
+	authenticationKeyHex += toHex(config->getMeterAuthenticationKey(), 16);
+	html.replace("${config.meterAuthenticationKey}", authenticationKeyHex);
+
 	html.replace("${config.substituteMissing}", config->isSubstituteMissing() ? "checked" : "");
 	html.replace("${config.sendUnknown}", config->isSendUnknown() ? "checked" : "");
 
@@ -243,6 +333,26 @@ void AmsWebServer::configMeterHtml() {
 	server.send_P(200, "text/html", HEAD_HTML);
 	server.sendContent(html);
 	server.sendContent_P(FOOT_HTML);
+}
+
+String AmsWebServer::toHex(uint8_t* in, uint8_t size) {
+	String hex;
+	for(int i = 0; i < size; i++) {
+		if(in[i] < 0x10) {
+			hex += '0';
+		}
+		hex += String(in[i], HEX);
+	}
+	hex.toUpperCase();
+	return hex;
+}
+
+uint8_t* AmsWebServer::fromHex(String in, uint8_t size) {
+	uint8_t ret[size];
+	for(int i = 0; i < size*2; i += 2) {
+		ret[i/2] = strtol(in.substring(i, i+2).c_str(), 0, 16);
+	}
+	return ret;
 }
 
 void AmsWebServer::configWifiHtml() {
@@ -265,6 +375,7 @@ void AmsWebServer::configWifiHtml() {
 	html.replace("${config.wifiDns1}", config->getWifiDns1());
 	html.replace("${config.wifiDns2}", config->getWifiDns2());
 	html.replace("${config.wifiHostname}", config->getWifiHostname());
+	html.replace("${config.mDnsEnable}", config->isMdnsEnable() ? "checked" : "");
 
 	server.setContentLength(html.length() + HEAD_HTML_LEN + FOOT_HTML_LEN);
 	server.send_P(200, "text/html", HEAD_HTML);
@@ -566,6 +677,7 @@ void AmsWebServer::handleSetup() {
 		config->setVccPin(0xFF);
 
 		config->setBoardType(server.arg("board").toInt());
+		config->setVccOffset(0.0);
 		config->setVccMultiplier(1.0);
 		config->setVccBootLimit(0);
 		switch(config->getBoardType()) {
@@ -648,6 +760,9 @@ void AmsWebServer::handleSetup() {
 		}
 		if(server.hasArg("wifiHostname") && !server.arg("wifiHostname").isEmpty()) {
 			config->setWifiHostname(server.arg("wifiHostname").c_str());
+			config->setMdnsEnable(true);
+		} else {
+			config->setMdnsEnable(false);
 		}
 		if(config->save()) {
 			performRestart = true;
@@ -671,6 +786,18 @@ void AmsWebServer::handleSave() {
 		config->setProductionCapacity(server.arg("productionCapacity").toInt());
 		config->setSubstituteMissing(server.hasArg("substituteMissing") && server.arg("substituteMissing") == "true");
 		config->setSendUnknown(server.hasArg("sendUnknown") && server.arg("sendUnknown") == "true");
+
+		String encryptionKeyHex = server.arg("meterEncryptionKey");
+		if(!encryptionKeyHex.isEmpty()) {
+			encryptionKeyHex.replace("0x", "");
+			config->setMeterEncryptionKey(fromHex(encryptionKeyHex, 16));
+		}
+
+		String authenticationKeyHex = server.arg("meterAuthenticationKey");
+		if(!authenticationKeyHex.isEmpty()) {
+			authenticationKeyHex.replace("0x", "");
+			config->setMeterAuthenticationKey(fromHex(authenticationKeyHex, 16));
+		}
 	}
 
 	if(server.hasArg("wifiConfig") && server.arg("wifiConfig") == "true") {
@@ -686,6 +813,7 @@ void AmsWebServer::handleSave() {
 			config->clearWifiIp();
 		}
 		config->setWifiHostname(server.arg("wifiHostname").c_str());
+		config->setMdnsEnable(server.hasArg("mDnsEnable") && server.arg("mDnsEnable") == "true");
 	}
 
 	if(server.hasArg("mqttConfig") && server.arg("mqttConfig") == "true") {
@@ -727,7 +855,7 @@ void AmsWebServer::handleSave() {
 		}
 	}
 
-	if(server.hasArg("sysConfig") && server.arg("sysConfig") == "true") {
+	if(server.hasArg("gpioConfig") && server.arg("gpioConfig") == "true") {
 		// Unset all pins to avoid conflicts if GPIO have been swapped between pins
 		config->setLedPin(0xFF);
 		config->setLedPinRed(0xFF);
@@ -735,6 +863,7 @@ void AmsWebServer::handleSave() {
 		config->setLedPinBlue(0xFF);
 		config->setApPin(0xFF);
 		config->setTempSensorPin(0xFF);
+		config->setTempAnalogSensorPin(0xFF);
 		config->setVccPin(0xFF);
 
 		config->setHanPin(server.hasArg("hanPin") && !server.arg("hanPin").isEmpty() ? server.arg("hanPin").toInt() : 3);
@@ -746,10 +875,14 @@ void AmsWebServer::handleSave() {
 		config->setLedRgbInverted(server.hasArg("ledRgbInverted") && server.arg("ledRgbInverted") == "true");
 		config->setApPin(server.hasArg("apPin") && !server.arg("apPin").isEmpty() ? server.arg("apPin").toInt() : 0xFF);
 		config->setTempSensorPin(server.hasArg("tempSensorPin") && !server.arg("tempSensorPin").isEmpty() ?server.arg("tempSensorPin").toInt() : 0xFF);
+		config->setTempAnalogSensorPin(server.hasArg("tempAnalogSensorPin") && !server.arg("tempAnalogSensorPin").isEmpty() ?server.arg("tempAnalogSensorPin").toInt() : 0xFF);
 		config->setVccPin(server.hasArg("vccPin") && !server.arg("vccPin").isEmpty() ? server.arg("vccPin").toInt() : 0xFF);
+		config->setVccOffset(server.hasArg("vccOffset") && !server.arg("vccOffset").isEmpty() ? server.arg("vccOffset").toDouble() : 0.0);
 		config->setVccMultiplier(server.hasArg("vccMultiplier") && !server.arg("vccMultiplier").isEmpty() ? server.arg("vccMultiplier").toDouble() : 1.0);
 		config->setVccBootLimit(server.hasArg("vccBootLimit") && !server.arg("vccBootLimit").isEmpty() ? server.arg("vccBootLimit").toDouble() : 0.0);
+	}
 
+	if(server.hasArg("debugConfig") && server.arg("debugConfig") == "true") {
 		config->setDebugTelnet(server.hasArg("debugTelnet") && server.arg("debugTelnet") == "true");
 		config->setDebugSerial(server.hasArg("debugSerial") && server.arg("debugSerial") == "true");
 		config->setDebugLevel(server.arg("debugLevel").toInt());
@@ -765,6 +898,24 @@ void AmsWebServer::handleSave() {
 		if(!config->isDebugTelnet()) {
 			debugger->stop();
 		}
+	}
+
+	if(server.hasArg("ntpConfig") && server.arg("ntpConfig") == "true") {
+		config->setNtpEnable(server.hasArg("ntpEnable") && server.arg("ntpEnable") == "true");
+		config->setNtpDhcp(server.hasArg("ntpDhcp") && server.arg("ntpDhcp") == "true");
+		if(server.hasArg("ntpOffset") && !server.arg("ntpOffset").isEmpty()) {
+			int offset = server.arg("ntpOffset").toInt();
+			config->setNtpOffset(offset);
+			if(server.hasArg("ntpSummerOffset") && !server.arg("ntpSummerOffset").isEmpty()) {
+				int summerOffset = server.arg("ntpSummerOffset").toInt();
+				config->setNtpSummerOffset(summerOffset);
+			} else {
+				config->setNtpSummerOffset(0);
+			}
+		} else {
+			config->setNtpOffset(0);
+		}
+		config->setNtpServer(server.arg("ntpServer").c_str());
 	}
 
 	printI("Saving configuration now...");
@@ -783,7 +934,9 @@ void AmsWebServer::handleSave() {
 			hw->setLed(config->getLedPin(), config->isLedInverted());
 			hw->setLedRgb(config->getLedPinRed(), config->getLedPinGreen(), config->getLedPinBlue(), config->isLedRgbInverted());
 			hw->setTempSensorPin(config->getTempSensorPin());
+			hw->setTempAnalogSensorPin(config->getTempAnalogSensorPin());
 			hw->setVccPin(config->getVccPin());
+			hw->setVccOffset(config->getVccOffset());
 			hw->setVccMultiplier(config->getVccMultiplier());
 		}
 	} else {
@@ -793,13 +946,43 @@ void AmsWebServer::handleSave() {
 	}
 }
 
-void AmsWebServer::configSystemHtml() {
-	printD("Serving /config-system.html over http...");
+void AmsWebServer::configNtpHtml() {
+	printD("Serving /ntp.html over http...");
 
 	if(!checkSecurity(1))
 		return;
 
-	String html = String((const __FlashStringHelper*) CONFIGSYSTEM_HTML);
+	String html = String((const __FlashStringHelper*) NTP_HTML);
+
+	html.replace("${config.ntpEnable}", config->isNtpEnable() ? "checked" : "");
+
+	for(int i = (3600*-13); i<(3600*15); i+=3600) {
+		html.replace("${config.ntpOffset" + String(i) + "}", config->getNtpOffset() == i ? "selected"  : "");
+	}
+
+	for(int i = 0; i<(3600*3); i+=3600) {
+		html.replace("${config.ntpSummerOffset" + String(i) + "}", config->getNtpSummerOffset() == i ? "selected"  : "");
+	}
+
+	html.replace("${config.ntpServer}", config->getNtpServer());
+	html.replace("${config.ntpDhcp}", config->isNtpDhcp() ? "checked" : "");
+
+	server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+	server.sendHeader("Pragma", "no-cache");
+
+	server.setContentLength(html.length() + HEAD_HTML_LEN + FOOT_HTML_LEN);
+	server.send_P(200, "text/html", HEAD_HTML);
+	server.sendContent(html);
+	server.sendContent_P(FOOT_HTML);
+}
+
+void AmsWebServer::configGpioHtml() {
+	printD("Serving /gpio.html over http...");
+
+	if(!checkSecurity(1))
+		return;
+
+	String html = String((const __FlashStringHelper*) GPIO_HTML);
 
 	#if defined(ESP32)
 		html.replace("${gpio.max}", "39");
@@ -819,8 +1002,26 @@ void AmsWebServer::configSystemHtml() {
 	html.replace("${config.tempSensorPin}", config->getTempSensorPin() == 0xFF ? "" : String(config->getTempSensorPin()));
 	html.replace("${config.vccPin}", config->getVccPin() == 0xFF ? "" : String(config->getVccPin()));
 
+	html.replace("${config.vccOffset}", config->getVccOffset() > 0 ? String(config->getVccOffset(), 2) : "");
 	html.replace("${config.vccMultiplier}", config->getVccMultiplier() > 0 ? String(config->getVccMultiplier(), 2) : "");
 	html.replace("${config.vccBootLimit}", config->getVccBootLimit() > 0.0 ? String(config->getVccBootLimit(), 1) : "");
+
+	server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+	server.sendHeader("Pragma", "no-cache");
+
+	server.setContentLength(html.length() + HEAD_HTML_LEN + FOOT_HTML_LEN);
+	server.send_P(200, "text/html", HEAD_HTML);
+	server.sendContent(html);
+	server.sendContent_P(FOOT_HTML);
+}
+
+void AmsWebServer::configDebugHtml() {
+	printD("Serving /debugging.html over http...");
+
+	if(!checkSecurity(1))
+		return;
+
+	String html = String((const __FlashStringHelper*) DEBUGGING_HTML);
 
 	html.replace("${config.debugTelnet}", config->isDebugTelnet() ? "checked" : "");
 	html.replace("${config.debugSerial}", config->isDebugSerial() ? "checked" : "");

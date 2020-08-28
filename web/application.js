@@ -58,13 +58,21 @@ $(function() {
 
     // For config-meter
     $('.subtitute-dependent').on('change', function() {
-        console.log("test");
         if(($('#meterType').val() == 2 || $('#meterType').val() == 3) && $('#distributionSystem').val() == 1) {
             $('#substitute').show();
         } else {
             $('#substitute').hide();
         }
     });
+
+    $('#meterType').on('change', function() {
+        if($('#meterType').val() == 4) {
+            $('.encryption').show();
+        } else {
+            $('.encryption').hide();
+        }
+    });
+
     $('#meterType').trigger('change');
 
     // For config-wifi
@@ -91,11 +99,21 @@ $(function() {
         $(this).next('.custom-file-label').html(fileName);
     })
 
+    // For NTP
+    $('#ntpEnable').on('change', function() {
+        var inputs = $('.ntp-config');
+        inputs.prop('disabled', !$(this).is(':checked'));
+    });
+    $('#ntpEnable').trigger('change');
+
     switch(window.location.pathname) {
+        case '/temperature':
+            $('#config-temp-link').addClass('active');
+            break;
         case '/config-meter':
             $('#config-meter-link').addClass('active');
             break;
-        case '/config-wifi':
+            case '/config-wifi':
             $('#config-wifi-link').addClass('active');
             break;
         case '/config-mqtt':
@@ -106,9 +124,9 @@ $(function() {
             $('#config-mqtt-link').addClass('active');
             break;
         case '/config-web':
-            $('#config-web-link').addClass('active');
-            break;
-        case '/config-system':
+        case '/ntp':
+        case '/gpio':
+        case '/debugging':
         case '/firmware':
         case '/reset':
             $('#config-system-link').addClass('active');
@@ -199,8 +217,9 @@ var fetch = function() {
 
         for(var id in json) {
             var str = json[id];
-            if(typeof str === "object")
+            if(typeof str === "object") {
                 continue;
+            }
             if(isNaN(str)) {
                 $('#'+id).html(str);
             } else {
