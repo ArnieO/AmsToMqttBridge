@@ -44,21 +44,102 @@ void HwTools::setVccMultiplier(double vccMultiplier) {
     this->vccMultiplier = vccMultiplier;
 }
 
-double HwTools::getVcc() {
-    double volts = 0.0;
+void HwTools::setVccResistorGnd(unsigned long VccResistorGnd) {
+    this->VccResistorGnd = VccResistorGnd;
+}
+
+void HwTools::setVccResistorVcc(unsigned long VccResistorVcc) {
+    this->VccResistorVcc = VccResistorVcc;
+}
+
+void HwTools::setAdcChannelVcc(adc1_channel_t adcChannelVcc) {
+    this->adcChannelVcc = adcChannelVcc;
+}
+
+void HwTools::setAdcChannelTemp(adc1_channel_t adcChannelTemp) {
+    this->adcChannelTemp = adcChannelTemp;
+}
+
+void HwTools::setAdcAtten(adc_atten_t adcAtten) {
+    this->adcAtten = adcAtten;
+}
+
+void HwTools::setAdcAverageLength(int adcAverageLength) {
+    this->adcAverageLength = adcAverageLength;
+}
+
+void HwTools::setTempAnalogMillivoltZeroC(int tempAnalogMillivoltZeroC) {
+    this->tempAnalogMillivoltZeroC = tempAnalogMillivoltZeroC;
+}
+
+void HwTools::setTempAnalogMillivoltPerC(double tempAnalogMillivoltPerC) {
+    this->tempAnalogMillivoltPerC = tempAnalogMillivoltPerC;
+}
+
+#if defined(ESP32)
+unsigned int HwTools::getAdcRaw(adc1_channel_t adcChannel, adc_atten_t adcAtten, int adcAverageLength) {
+    unsigned int errorValue = 0;
+    adc1_config_width(ADC_WIDTH_BIT_12);    // 12 bits ADC
+    adc1_config_channel_atten(adcChannel, adcAtten);
+    if (adc1_get_raw(adcChannel) == -1) { //ADC parameter error
+        errorValue = -99;
+    }
+    double x = 0.0;
+    for (int i = 0; i < adcAverageLength; i++) { //average over adcAverageLength samples
+        x +=  adc1_get_raw(adcChannel);
+    }
+    x = x / adcAverageLength;
+    return (errorValue == -99 ? errorValue : (unsigned int)x);
+}
+
+double HwTools::getAdcVcc(adc1_channel_t adcChannel, unsigned long resistorGnd, unsigned long resistorVcc, unsigned int averageLength) {
+    esp_adc_cal_characteristics_t *adcChars;
+    esp_adc_cal_value_t valType;
+
+    //Characterize ADC
+    adcChars = (esp_adc_cal_characteristics_t*) calloc(1, sizeof(esp_adc_cal_characteristics_t));
+    valType = esp_adc_cal_characterize(ADC_UNIT_1, adcAtten, ADC_WIDTH_BIT_12, 1100, adcChars);
+
+    //Read ADC
+    unsigned int avgAdcRaw = getAdcRaw(adcChannel, adcAtten, adcAverageLength);
+
+    return((double)esp_adc_cal_raw_to_voltage(avgAdcRaw, adcChars) / 1000.0 * (resistorGnd + resistorVcc) / resistorGnd);
+}
+
+double HwTools::getAdcTemp(adc1_channel_t adcChannel, int millivoltZeroC, double millivoltPerC, int adcAverageLength) {
+    esp_adc_cal_characteristics_t *adcChars;
+    esp_adc_cal_value_t valType;
+
+    //Characterize ADC
+    adcChars = (esp_adc_cal_characteristics_t*) calloc(1, sizeof(esp_adc_cal_characteristics_t));
+    valType = esp_adc_cal_characterize(ADC_UNIT_1, adcAtten , ADC_WIDTH_BIT_12, 1100, adcChars);
+
+    //Read ADC
+    unsigned int avgAdcRaw = getAdcRaw(adcChannel, adcAtten, adcAverageLength);
+
+    return((double)(esp_adc_cal_raw_to_voltage(avgAdcRaw, adcChars)-millivoltZeroC)/millivoltPerC);
+}
+
+#endif // #if defined(ESP32)
+
+double HwTools::getVcc() { // Egil har rotet med denne funksjonen; gå evt. tilbake til originalen
+    double voltsRead = 0.0, vccVolts = 0.0;
     if(vccPin != 0xFF) {
         #if defined(ESP8266)
-            volts = (analogRead(vccPin) / 1024.0) * 3.3;
+            vccVolts = (analogRead(vccPin) / 1024.0) * 3.3;
         #elif defined(ESP32)
-            volts = (analogRead(vccPin) / 4095.0) * 3.3;
+            // volts = (analogRead(vccPin) / 4095.0) * 3.3;
+            voltsRead = analogRead(vccPin) * 0.00085682 + 0.16059; // Calibrated for offset and gain measured on ESP32-SOLO-1
+            vccVolts = voltsRead * (VccResistorGnd + VccResistorVcc) / VccResistorGnd ;
         #endif
     } else {
         #if defined(ESP8266)
-            volts = ((double) ESP.getVcc()) / 1024.0;
+            vccVolts = ((double) ESP.getVcc()) / 1024.0;
         #endif
     }
 
-    return vccOffset + (volts > 0.0 ? volts * vccMultiplier : 0.0);
+    //return vccOffset + (volts > 0.0 ? volts * vccMultiplier : 0.0);
+    return (vccVolts > 0.0 ? vccVolts : 0.0);
 }
 
 void HwTools::confTempSensor(uint8_t address[8], const char name[32], bool common) {

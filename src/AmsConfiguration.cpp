@@ -538,6 +538,75 @@ void AmsConfiguration::setVccMultiplier(double vccMultiplier) {
 	config.vccMultiplier = max(1, min((int) (vccMultiplier * 1000), 65535));
 }
 
+// Update Egil 7 sep 2020
+#if defined(ESP32)
+void AmsConfiguration::setVccResistorGnd(double vccResistorGnd) {
+	config.vccResistorGnd = vccResistorGnd;
+}
+
+double AmsConfiguration::getVccResistorGnd() {
+	return config.vccResistorGnd > 0 ? config.vccResistorGnd : 1;
+}
+
+void AmsConfiguration::setVccResistorVcc(double vccResistorVcc) {
+	config.vccResistorVcc = vccResistorVcc;
+}
+
+double AmsConfiguration::getVccResistorVcc() {
+	return config.vccResistorVcc > 0 ? config.vccResistorVcc : 1;
+}
+
+void AmsConfiguration::setAdcChannelVcc(adc1_channel_t adcChannelVcc) {
+	config.adcChannelVcc = adcChannelVcc;
+}
+
+adc1_channel_t AmsConfiguration::getAdcChannelVcc() {
+	return config.adcChannelVcc;
+}
+
+void AmsConfiguration::setAdcChannelTemp(adc1_channel_t adcChannelTemp) {
+	config.adcChannelTemp = adcChannelTemp;
+}
+
+adc1_channel_t AmsConfiguration::getAdcChannelTemp() {
+	return config.adcChannelTemp;
+}
+
+void AmsConfiguration::setAdcAtten(adc_atten_t adcAtten) {
+	config.adcAtten = adcAtten;
+}
+
+adc_atten_t AmsConfiguration::getAdcAtten() {
+	return config.adcAtten;
+}
+
+void AmsConfiguration::setAdcAverageLength(int adcAverageLength) {
+	config.adcAverageLength = adcAverageLength;
+}
+
+int AmsConfiguration::getAdcAverageLength() {
+	return config.adcAverageLength;
+}
+
+void AmsConfiguration::setTempAnalogMillivoltZeroC(int tempAnalogMillivoltZeroC) {
+	config.tempAnalogMillivoltZeroC = tempAnalogMillivoltZeroC;
+}
+
+int AmsConfiguration::getTempAnalogMillivoltZeroC() {
+	return config.tempAnalogMillivoltZeroC;
+}
+
+void AmsConfiguration::setTempAnalogMillivoltPerC(double tempAnalogMillivoltPerC) {
+	config.tempAnalogMillivoltPerC = tempAnalogMillivoltPerC;
+}
+
+double AmsConfiguration::getTempAnalogMillivoltPerC() {
+	return config.tempAnalogMillivoltPerC;
+}
+
+#endif
+// END Update Egil 7 sep 2020
+
 double AmsConfiguration::getVccBootLimit() {
 	return config.vccBootLimit > 0 ? config.vccBootLimit / 10.0 : 0;
 }
@@ -1017,6 +1086,20 @@ void AmsConfiguration::print(Print* debugger)
 	debugger->printf("AP pin:               %i\r\n", this->getApPin());
 	debugger->printf("Temperature pin:      %i\r\n", this->getTempSensorPin());
 	Serial.flush();
+
+	// Update Egil 7 sep 2020
+	#if defined(ESP32)
+	debugger->printf("Vcc resistor GND:     %l\r\n", this->getVccResistorGnd());
+	debugger->printf("Vcc resistor Vcc:     %l\r\n", this->getVccResistorVcc());
+	debugger->printf("ADC channel Vcc:      %i\r\n", this->getAdcChannelVcc());
+	debugger->printf("ADC channel Temp:     %i\r\n", this->getAdcChannelTemp());
+	debugger->printf("ADC attenuation:      %i\r\n", this->getAdcAtten());
+	debugger->printf("ADC average length:   %i\r\n", this->getAdcAverageLength());
+	debugger->printf("Temp sensormV @0degC: %i\r\n", this->getTempAnalogMillivoltZeroC());
+	debugger->printf("Temp sensor mV/degC:  %f\r\n", this->getTempAnalogMillivoltPerC());
+	Serial.flush();
+	#endif
+	// END Update Egil 7 sep 2020
 
 	debugger->printf("Vcc pin:              %i\r\n", this->getVccPin());
 	debugger->printf("Vcc multiplier:       %f\r\n", this->getVccMultiplier());

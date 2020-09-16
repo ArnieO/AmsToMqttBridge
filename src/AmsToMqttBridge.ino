@@ -42,6 +42,8 @@ ADC_MODE(ADC_VCC);
 
 #include "Uptime.h"
 
+#include "EspNowAms.h"
+
 #define WEBSOCKET_DISABLED true
 #include "RemoteDebug.h"
 
@@ -65,6 +67,15 @@ HanReader hanReader;
 Stream *hanSerial;
 
 void setup() {
+	#if defined(ESP32)
+	setCpuFrequencyMhz(80);
+	#endif
+
+	//ESP-NOW register peer info
+	memcpy(peerInfo.peer_addr, broadcastAddress, sizeof(broadcastAddress));
+  	peerInfo.channel = 0;
+  	peerInfo.encrypt = false;
+
 	if(config.hasConfig()) {
 		config.load();
 	}
@@ -80,6 +91,31 @@ void setup() {
 		config.setWifiHostname((String("ams-") + String(chipId, HEX)).c_str());
 	}
 
+	#if defined(HW_ESP32_POW_2_1)
+		config.setHanPin(16);
+		config.setApPin(0);
+		//config.setLedPin(2);	//ESP32-SOLO-1 has no built-in LED
+		config.setLedPinRed(13);
+		config.setLedPinBlue(14);
+		config.setLedInverted(true);
+		//config.setTempAnalogSensorPin(34);
+		//config.setVccPin(35);
+		//config.setVccOffset(0);
+		//config.setVccMultiplier(2.75);
+		//config.setMeterType(METER_TYPE_KAMSTRUP);  // Bør helst fjernes
+		//config.setVccResistorGnd(22000.0);
+		//config.setVccResistorVcc(33000.0);
+		config.setAdcChannelVcc(ADC1_GPIO35_CHANNEL);
+		config.setAdcChannelTemp(ADC1_GPIO34_CHANNEL);
+		config.setAdcAtten(ADC_ATTEN_DB_6);
+		config.setAdcAverageLength(100);
+		config.setTempAnalogMillivoltZeroC(400);	//TMP236 temp sensor
+		config.setTempAnalogMillivoltPerC(19.5);	//TMP236 temp sensor
+		config.save();
+	#endif
+
+	delay(10);	//Feed watchdog
+
 	if(!config.hasConfig() || config.getConfigVersion() < 82) {
 		config.setVccMultiplier(1.0);
 		config.setVccBootLimit(0);
@@ -88,7 +124,7 @@ void setup() {
 			config.setApPin(0);
 			config.setLedPin(2);
 			config.setLedInverted(true);
-			config.setTempSensorPin(5);
+			config.setTempSensorPin(5);			
 		#elif defined(ARDUINO_ESP8266_WEMOS_D1MINI)
 			config.setHanPin(5);
 			config.setApPin(4);
@@ -136,6 +172,8 @@ void setup() {
 	hw.ledBlink(LED_GREEN, 1);
 	hw.ledBlink(LED_BLUE, 1);
 
+	delay(10);	//Feed watchdog
+
 	if(config.getHanPin() == 3) {
 		switch(config.getMeterType()) {
 			case METER_TYPE_KAMSTRUP:
@@ -158,7 +196,8 @@ void setup() {
 		#endif
 	}
 
-	double vcc = hw.getVcc();
+	//double vcc = hw.getVcc();
+	double vcc = hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength());
 
 	if (Debug.isActive(RemoteDebug::INFO)) {
 		debugI("AMS bridge started");
@@ -198,7 +237,8 @@ void setup() {
 			WiFi.forceSleepBegin();
 #endif
 			int i = 0;
-			while(hw.getVcc() < 3.2 && i < 3) {
+			//while(hw.getVcc() < 3.2 && i < 3) {
+			while(hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength()) < 3.2 && i < 3) {
 				if(Debug.isActive(RemoteDebug::INFO)) debugI(" vcc not optimal, light sleep 10s");
 #if defined(ESP8266)
 				delay(10000);
@@ -247,7 +287,9 @@ void setup() {
 
 	if(config.hasConfig()) {
 		if(Debug.isActive(RemoteDebug::INFO)) config.print(&Debug);
-		WiFi_connect();
+		WiFi_connect(); 
+		//WiFi.disconnect(true); //#######################################################
+  		//WiFi.mode(WIFI_OFF); //#######################################################
 		if(config.isNtpEnable()) {
 			configTime(config.getNtpOffset(), config.getNtpSummerOffset(), config.getNtpServer());
 			sntp_servermode_dhcp(config.isNtpDhcp() ? 1 : 0);
@@ -258,7 +300,6 @@ void setup() {
 		}
 		swapWifiMode();
 	}
-
 	ws.setup(&config, &mqtt);
 }
 
@@ -359,12 +400,15 @@ void loop() {
 		}
 	}
 
+
 	// Only do normal stuff if we're not booted as AP
 	if (WiFi.getMode() != WIFI_AP) {
 		if (WiFi.status() != WL_CONNECTED) {
 			wifiConnected = false;
 			Debug.stop();
 			WiFi_connect();
+			WiFi.disconnect(true); //#######################################################
+  			WiFi.mode(WIFI_OFF); //#######################################################
 		} else {
 			if(!wifiConnected) {
 				wifiConnected = true;
@@ -438,6 +482,7 @@ void loop() {
 		lastRead = now;
 	}
 	ws.loop();
+	
 	delay(1); // Needed for auto modem sleep
 }
 
@@ -517,6 +562,7 @@ void setupHanPort(int pin, int newMeterType) {
 	}
 }
 
+
 void errorBlink() {
 	if(lastError == 3)
 		lastError = 0;
@@ -545,6 +591,7 @@ void errorBlink() {
 	}
 }
 
+
 void swapWifiMode() {
 	if(!hw.ledOn(LED_YELLOW)) {
 		hw.ledOn(LED_INTERNAL);
@@ -566,12 +613,15 @@ void swapWifiMode() {
 	} else {
 		if(Debug.isActive(RemoteDebug::INFO)) debugI("Swapping to STA mode");
 		WiFi_connect();
+		WiFi.disconnect(true); //#######################################################
+  		WiFi.mode(WIFI_OFF); //#######################################################
 	}
 	delay(500);
 	if(!hw.ledOff(LED_YELLOW)) {
 		hw.ledOff(LED_INTERNAL);
 	}
 }
+
 
 void mqttMessageReceived(String &topic, String &payload)
 {
@@ -600,13 +650,153 @@ void readHanPort() {
 				hw.ledBlink(LED_INTERNAL, 1);
 
 			AmsData data(config.getMeterType(), config.isSubstituteMissing(), hanReader);
+			Serial.print("data.getListType() = "); Serial.println(data.getListType()); //#######################################################
 			if(data.getListType() > 0) {
-				ws.setData(data);
+				Serial.println("if(data.getListType() > 0) {"); //#######################################################
+				//* Send ESP-NOW, then LightSleep for a short period after each payload to save power ¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤
+				String meterMake;
 
+				switch (config.getMeterType()) //currentMeterType
+				{
+					case METER_TYPE_AIDON: meterMake="Aidon"; break;
+					case METER_TYPE_KAIFA: meterMake="Kaifa"; break;
+					case METER_TYPE_KAMSTRUP: meterMake="Kamstrup"; break;
+					case METER_TYPE_OMNIPOWER: meterMake="Omnipower"; break;
+					default: meterMake="ERROR"; break;
+				};		
+
+				// Calculate HANbridge uptime, send as formatted string "hhhh:mm:ss"
+				static long uptimeSeconds;
+				char uptimeString[11], buf[10];
+				uptimeSeconds = (int)(esp_timer_get_time()/1000000);
+				sprintf(buf, "%04d", (int)(uptimeSeconds/3600));
+				strcpy(uptimeString, buf);
+				strcat(uptimeString, ":");
+				sprintf(buf, "%02d", (int)((uptimeSeconds % 3600)/60));
+				strcat(uptimeString, buf);
+				strcat(uptimeString, ":");
+				sprintf(buf, "%02d", (int)((uptimeSeconds % 3600)%60));
+				strcat(uptimeString, buf);
+								
+				Serial.print("config.getAdcChannelTemp()= "); Serial.println(config.getAdcChannelTemp());
+				Serial.print("config.getTempAnalogMillivoltZeroC()= "); Serial.println(config.getTempAnalogMillivoltZeroC());
+				Serial.print("config.getTempAnalogMillivoltPerC()= "); Serial.println(config.getTempAnalogMillivoltPerC());
+				Serial.print("config.getAdcAverageLength()= "); Serial.println(config.getAdcAverageLength());
+				Serial.print("hw.getAdcTemp()= "); Serial.println(hw.getAdcTemp(config.getAdcChannelTemp(), config.getTempAnalogMillivoltZeroC(), config.getTempAnalogMillivoltPerC(), config.getAdcAverageLength()));
+						
+				static amsEspNowDataStruct amsEspNowData;
+				amsEspNowData.espNowDataStructVer=1; // Version number for the ESP-NOW data structure
+				//amsEspNowData.transmitterVcc = (int) (100.0 * hw.getVcc());
+				amsEspNowData.transmitterVcc = (int) (100.0 * hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength()));
+				//amsEspNowData.transmitterTemp = (int) (10.0 * hw.getTemperature());
+				amsEspNowData.transmitterTemp = (int) (10.0 * hw.getAdcTemp(config.getAdcChannelTemp(), config.getTempAnalogMillivoltZeroC(), config.getTempAnalogMillivoltPerC(), config.getAdcAverageLength()));
+				strcpy(amsEspNowData.transmitterUptime, uptimeString);	// Uptime time format transmitted: "hhhh:mm:ss"
+				strcpy(amsEspNowData.meterMake, meterMake.c_str());
+    			strcpy(amsEspNowData.meterModel, data.getMeterType().c_str());
+				strcpy(amsEspNowData.meterId, data.getMeterId().c_str());
+				amsEspNowData.meterTimestamp = data.getPackageTimestamp();
+				amsEspNowData.activeImportPower = data.getActiveImportPower();
+				amsEspNowData.activeExportPower = data.getActiveExportPower();
+				amsEspNowData.reactiveImportPower = data.getReactiveImportPower();
+				amsEspNowData.reactiveExportPower = data.getReactiveExportPower();
+				amsEspNowData.L1Current = (unsigned int) (data.getL1Current()*100);
+				amsEspNowData.L2Current = (unsigned int) (data.getL2Current()*100);
+				amsEspNowData.L3Current = (unsigned int) (data.getL2Current()*100);
+				amsEspNowData.L1Voltage = (unsigned int) (data.getL1Voltage()*10);
+				amsEspNowData.L2Voltage = (unsigned int) (data.getL2Voltage()*10);
+				amsEspNowData.L3Voltage = (unsigned int) (data.getL3Voltage()*10);
+				if (data.getActiveImportCounter() > 0) {	//Only updated when received counter data
+					amsEspNowData.meterCounterTimestamp = (unsigned long) data.getPackageTimestamp();
+					amsEspNowData.activeImportCounter = (unsigned long) data.getActiveImportCounter();
+					amsEspNowData.activeExportCounter = (unsigned long) data.getActiveExportCounter();
+					amsEspNowData.reactiveImportCounter = (unsigned long) data.getReactiveImportCounter();
+					amsEspNowData.reactiveExportCounter = (unsigned long) data.getReactiveExportCounter();
+				}
+
+				//(Re-)initialize ESP-NOW
+  				WiFi.mode(WIFI_STA);
+  				if (esp_now_init() != ESP_OK) {
+    				Serial.println("ESP_ERR_ESPNOW_INTERNAL");
+  				}
+  				if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    				Serial.println("Failed to add peer");
+    				return;
+  				}
+
+				// Set up ESP-NOW callback function
+  				if (esp_now_register_send_cb(msg_send_cb) != ESP_OK)
+  				{
+    				Serial.println("Could not register send callback");
+  				}
+
+				// Send data over ESP-NOW
+				esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &amsEspNowData, sizeof(amsEspNowData));
+				if (result != ESP_OK) {
+				    Serial.print("esp_now_send() failed, error code: 0x");
+    				Serial.println(result, HEX);
+  				}
+
+				// Prepare for sleep
+  				delay(10); //Short delay to finish transmit before esp_now_deinit()
+  				if (esp_now_deinit() != ESP_OK) {   //De-initialize ESP-NOW. (all information of paired devices will be deleted)
+    				Serial.println("esp_now_deinit() failed");
+  				}
+  				WiFi.disconnect(true);
+  				WiFi.mode(WIFI_OFF);
+
+				// Light sleep needed for Kamstrup meter to preserve power
+				if (config.getMeterType() == METER_TYPE_KAMSTRUP) {
+
+					// The Kamstrup meter sends a List3 payload inbetween the two List2 payloads at xx:00:55
+					// The normal Ligt sleep duration is calibrated for 10 seconds payload interval, to preserve energy.
+					// In order to capture the List3 arriving at xx:00:55, the sleep duration of xx:00:40 is set to a longer interval, 
+					// to skip List2 payload arriving at xx:00:50
+					// After that, normal sleep period after the List3 payload, so also List2 payload at xx:01:00 will be lost.
+					// Retained payloads will be:
+					// List2 at xx:00:40
+					// List3 at xx:00:55
+					// List2 at xx:01:10
+					// Then all List1 payloads each 10 seconds until next xx:00:40
+					
+					int second = amsEspNowData.meterTimestamp % 60;
+					int minute = (amsEspNowData.meterTimestamp / 60) % 60;
+					long sleepDuration=10;	// microseconds
+					
+  					Serial.print("Timestamp: "); Serial.printf("%02d", minute); Serial.print(":"); Serial.printf("%02d", second); Serial.println();
+
+					if ((minute == 00) && (second == 40)) {
+						sleepDuration = 12000000;	//12 seconds
+					}
+					else {
+						sleepDuration = 8000000;	//8 seconds
+					}
+					
+					//Serial.print("sleepDuration: "); Serial.println(sleepDuration);
+
+					static long wakeTimeMillis;
+					static long sleepTimeMillis; 
+					sleepTimeMillis = esp_timer_get_time() / 1000;
+  					//Serial.print("Light sleep start after having worked for ");
+  					//Serial.print(sleepTimeMillis - wakeTimeMillis);
+  					//Serial.println(" ms.");
+					delay(10); //Short delay to finish ongoing Serial.println etc before sleep
+					esp_sleep_enable_timer_wakeup(sleepDuration);
+					esp_light_sleep_start();
+					wakeTimeMillis = esp_timer_get_time() / 1000;
+				}	
+				//* END of Send ESP-NOW *******************************************************************
+				
+				
+				
+				// ws.setData(data); //###############################################
+								
 				if(strlen(config.getMqttHost()) > 0 && strlen(config.getMqttPublishTopic()) > 0) {
 					if(config.getMqttPayloadFormat() == 0) {
 						StaticJsonDocument<512> json;
-						hanToJson(json, data, hw, hw.getTemperature(), config.getMqttClientId());
+						//hanToJson(json, data, hw, hw.getTemperature(), config.getMqttClientId());
+						
+						hanToJson(json, data, hw, hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength()), 
+						hw.getAdcTemp(config.getAdcChannelTemp(), config.getTempAnalogMillivoltZeroC(), config.getTempAnalogMillivoltPerC(), config.getAdcAverageLength()), config.getMqttClientId());
 						if (Debug.isActive(RemoteDebug::INFO)) {
 							debugI("Sending data to MQTT");
 							if (Debug.isActive(RemoteDebug::DEBUG)) {
@@ -826,44 +1016,36 @@ void readHanPort() {
 					}
 					mqtt.publish(String(config.getMqttPublishTopic()), hexstring);
 				}
-			}
+				}
 		} else {
 			// Auto detect meter if not set
-			for(int i = 1; i <= 4; i++) {
+			for(int i = 1; i <= 3; i++) {
 				String list;
 				switch(i) {
-					case METER_TYPE_KAIFA:
+					case 1:
 						list = hanReader.getString((int) Kaifa_List1Phase::ListVersionIdentifier);
 						break;
-					case METER_TYPE_AIDON:
+					case 2:
 						list = hanReader.getString((int) Aidon_List1Phase::ListVersionIdentifier);
 						break;
-					case METER_TYPE_KAMSTRUP:
+					case 3:
 						list = hanReader.getString((int) Kamstrup_List1Phase::ListVersionIdentifier);
-						break;
-					case METER_TYPE_OMNIPOWER:
-						list = hanReader.getString((int) Omnipower_DLMS::ListVersionIdentifier);
 						break;
 				}
 				if(!list.isEmpty()) {
 					list.toLowerCase();
 					if(list.startsWith("kfm")) {
-						config.setMeterType(METER_TYPE_KAIFA);
+						config.setMeterType(1);
 						if(Debug.isActive(RemoteDebug::INFO)) debugI("Detected Kaifa meter");
+						break;
 					} else if(list.startsWith("aidon")) {
-						config.setMeterType(METER_TYPE_AIDON);
+						config.setMeterType(2);
 						if(Debug.isActive(RemoteDebug::INFO)) debugI("Detected Aidon meter");
+						break;
 					} else if(list.startsWith("kamstrup")) {
-						switch(i) {
-							case METER_TYPE_KAMSTRUP:
-								config.setMeterType(METER_TYPE_KAMSTRUP);
-								if(Debug.isActive(RemoteDebug::INFO)) debugI("Detected Kamstrup meter");
-								break;
-							case METER_TYPE_OMNIPOWER:
-								config.setMeterType(METER_TYPE_OMNIPOWER);
-								if(Debug.isActive(RemoteDebug::INFO)) debugI("Detected Kamstrup meter");
-								break;
-						}
+						config.setMeterType(3);
+						if(Debug.isActive(RemoteDebug::INFO)) debugI("Detected Kamstrup meter");
+						break;
 					}
 				}
 			}
@@ -919,7 +1101,7 @@ void WiFi_connect() {
 			WiFi.setHostname(config.getWifiHostname());
 #endif
 		}
-		WiFi.begin(config.getWifiSsid(), config.getWifiPassword());
+		// WiFi.begin(config.getWifiSsid(), config.getWifiPassword()); //##########################################
 		yield();
 	}
 }
@@ -1024,6 +1206,7 @@ void MQTT_connect() {
 	yield();
 }
 
+
 // Send a simple string embedded in json over MQTT
 void sendMqttData(String data)
 {
@@ -1036,7 +1219,8 @@ void sendMqttData(String data)
 	json["id"] = WiFi.macAddress();
 	json["up"] = millis64()/1000;
 	json["data"] = data;
-	double vcc = hw.getVcc();
+	//double vcc = hw.getVcc();
+	double vcc = hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength());
 	if(vcc > 0) {
 		json["vcc"] = vcc;
 	}
@@ -1063,12 +1247,15 @@ void sendSystemStatusToMqtt() {
 
 	mqtt.publish(String(config.getMqttPublishTopic()) + "/id", WiFi.macAddress());
 	mqtt.publish(String(config.getMqttPublishTopic()) + "/uptime", String((unsigned long) millis64()/1000));
-	double vcc = hw.getVcc();
+	//double vcc = hw.getVcc();
+	double vcc = hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength());
 	if(vcc > 0) {
 		mqtt.publish(String(config.getMqttPublishTopic()) + "/vcc", String(vcc, 2));
 	}
 	mqtt.publish(String(config.getMqttPublishTopic()) + "/rssi", String(hw.getWifiRssi()));
-    if(hw.getTemperature() > -85) {
-		mqtt.publish(String(config.getMqttPublishTopic()) + "/temperature", String(hw.getTemperature(), 2));
+    //if(hw.getTemperature() > -85) {
+	if(hw.getAdcTemp(config.getAdcChannelTemp(), config.getTempAnalogMillivoltZeroC(), config.getTempAnalogMillivoltPerC(), config.getAdcAverageLength()) > -85) {
+		//mqtt.publish(String(config.getMqttPublishTopic()) + "/temperature", String(hw.getTemperature(), 2));
+		mqtt.publish(String(config.getMqttPublishTopic()) + "/temperature", String(hw.getAdcTemp(config.getAdcChannelTemp(), config.getTempAnalogMillivoltZeroC(), config.getTempAnalogMillivoltPerC(), config.getAdcAverageLength()), 2));
     }
 }

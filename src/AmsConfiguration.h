@@ -2,6 +2,7 @@
 #define _AMSCONFIGURATION_h
 #include <EEPROM.h>
 #include "Arduino.h"
+#include <driver/adc.h>   // Gjør det mulig å bruke mange IDF funksjonsnavn for ADC
 
 struct ConfigObject {
 	uint8_t boardType;
@@ -52,6 +53,19 @@ struct ConfigObject {
 	int16_t vccOffset;
 	uint16_t vccMultiplier;
 	uint8_t vccBootLimit;
+
+	// Update Egil 7 sep 2020
+	#if defined(ESP32)
+	double vccResistorGnd;
+	double vccResistorVcc;
+	adc1_channel_t adcChannelVcc;
+	adc1_channel_t adcChannelTemp;
+	adc_atten_t adcAtten;
+	int adcAverageLength;
+	int tempAnalogMillivoltZeroC;
+	double tempAnalogMillivoltPerC;
+	#endif
+	// END Update Egil 7 sep 2020
 
 	uint16_t domoELIDX;
 	uint16_t domoVL1IDX;
@@ -251,6 +265,28 @@ public:
 	void setVccOffset(double vccOffset);
 	double getVccMultiplier();
 	void setVccMultiplier(double vccMultiplier);
+
+	// Update Egil 7 sep 2020
+	#if defined(ESP32)
+	void setVccResistorGnd(double vccResistorGnd);
+	double getVccResistorGnd();
+    void setVccResistorVcc(double vccResistorVcc);
+	double getVccResistorVcc();
+    void setAdcChannelVcc(adc1_channel_t adcChannelVcc);
+	adc1_channel_t getAdcChannelVcc();
+    void setAdcChannelTemp(adc1_channel_t adcChannelTemp);
+	adc1_channel_t getAdcChannelTemp();
+    void setAdcAtten(adc_atten_t adcAtten);
+	adc_atten_t getAdcAtten();
+    void setAdcAverageLength(int adcAverageLength);
+	int getAdcAverageLength();
+    void setTempAnalogMillivoltZeroC(int tempAnalogMillivoltZeroC);
+	int getTempAnalogMillivoltZeroC();
+    void setTempAnalogMillivoltPerC(double tempAnalogMillivoltPerC);
+	double getTempAnalogMillivoltPerC();
+	#endif
+	// END Update Egil 7 sep 2020
+
 	double getVccBootLimit();
 	void setVccBootLimit(double vccBootLimit);
 
@@ -347,6 +383,20 @@ private:
 		0, // Offset
 		100, // Multiplier
 		0, // Boot limit
+		
+		// Update Egil 7 sep 2020
+		#if defined(ESP32)
+			22.0,
+			33.0,
+			ADC1_GPIO35_CHANNEL,
+			ADC1_GPIO34_CHANNEL,
+			ADC_ATTEN_DB_6,
+			100,
+			400,
+			19.5,
+		#endif
+		// END Update Egil 7 sep 2020
+
 		//Domoticz
 		0, // ELIDX
 		0, // VL1IDX

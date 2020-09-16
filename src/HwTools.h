@@ -7,6 +7,8 @@
 #include <ESP8266WiFi.h>
 #elif defined(ESP32)
 #include <WiFi.h>
+#include <driver/adc.h>   // Enables IDF function names for ADC
+#include <esp_adc_cal.h>  // Enables ESP32 calibration functions 
 #endif
 
 #include <DallasTemperature.h>
@@ -33,6 +35,19 @@ public:
     void setVccPin(int vccPin);
     void setVccOffset(double vccOffset);
     void setVccMultiplier(double vccMultiplier);
+    void setVccResistorGnd(unsigned long VccResistorGnd);
+    void setVccResistorVcc(unsigned long VccResistorVcc);
+    void setAdcAverageLength(int adcAverageLength);
+    void setTempAnalogMillivoltZeroC(int tempAnalogMillivoltZeroC);
+    void setTempAnalogMillivoltPerC(double tempAnalogMillivoltPerC);
+    #if defined(ESP32)
+    void setAdcChannelVcc(adc1_channel_t adcChannelVcc);
+    void setAdcChannelTemp(adc1_channel_t adcChannelTemp);
+    void setAdcAtten(adc_atten_t adcAtten);
+    unsigned int getAdcRaw(adc1_channel_t adcChannel, adc_atten_t adcAtten, int adcAverageLength);
+    double getAdcVcc(adc1_channel_t adcChannel, unsigned long resistorGnd, unsigned long resistorVcc, unsigned int averageLength);
+    double getAdcTemp(adc1_channel_t adcChannel, int millivoltZeroC, double millivoltPerC, int adcAverageLength);
+    #endif
     double getVcc();
     void confTempSensor(uint8_t address[8], const char name[32], bool common);
     uint8_t getTempSensorCount();
@@ -56,6 +71,15 @@ private:
     bool ledInverted, ledRgbInverted;
     double vccOffset = 0.0;
     double vccMultiplier = 1.0;
+    unsigned long VccResistorGnd = 22000; // ohm
+    unsigned long VccResistorVcc = 33000; // ohm
+    #if defined(ESP32)
+        adc1_channel_t adcChannelVcc, adcChannelTemp;
+        adc_atten_t adcAtten = ADC_ATTEN_DB_6;
+    #endif // #if defined(ESP32)
+    int adcAverageLength = 10;
+    int tempAnalogMillivoltZeroC = 400;
+    double tempAnalogMillivoltPerC = 19.5;
     
     bool tempSensorInit;
     OneWire *oneWire;

@@ -1,12 +1,14 @@
 #include "HanToJson.h"
+#include "AmsConfiguration.h"
 
-void hanToJson(JsonDocument& json, AmsData& data, HwTools& hw, double temperature, String name) {
+void hanToJson(JsonDocument& json, AmsData& data, HwTools& hw, double vcc, double temperature, String name) {
     json["id"] = WiFi.macAddress();
     json["name"] = name;
     json["up"] = millis();
     json["t"] = data.getPackageTimestamp();
 
-    double vcc = hw.getVcc();
+    //double vcc = hw.getVcc(); //Removed after introducing vcc as input parameter
+    
     if(vcc > 0) {
         json["vcc"] = serialized(String(vcc, 3));
     }
