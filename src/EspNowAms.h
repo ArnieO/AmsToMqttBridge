@@ -1,4 +1,6 @@
 #include <esp_now.h>
+#include "encryption.h"
+#include "AmsConfiguration.h"
 
 typedef struct {
     short espNowDataStructVer=1; 
@@ -41,4 +43,40 @@ static void msg_send_cb(const uint8_t* mac, esp_now_send_status_t sendStatus)
   }
 }
 
+// Broadcast address
+uint8_t bcast[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+// Master address, if bound to master. Automatically populated
+uint8_t master[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+bool hasMaster = false;
+
+// Public key, needed to do handshake if encryption key is not already set
+uint8_t* public_key = NULL;
+
+// Encryption key used to encrypt payload. Ideally this would be saved to EEPROM after handshake to be able to reload after reboot
+uint8_t* encryption_key = NULL;
+
+/*
+void printByteArray(byte arr[], int size)
+{
+  for (int i = 0; i < size; i++)
+  {
+    Serial.print(arr[i]);
+    Serial.print(" ");
+  }
+  Serial.println();
+}
+*/
+
+void mbus_hexdump(uint8_t* buf, int len) {
+    Serial.printf("DUMP (%db) [ ", len); 
+    for(uint8_t* p = buf; p-buf < len; ++p)
+        Serial.printf("%02X ", *p);
+    Serial.print("]\n\n");
+}
+
+
+
+
 esp_now_peer_info_t peerInfo;
+amsEspNowDataStruct amsEspNowData;

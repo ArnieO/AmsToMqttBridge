@@ -539,7 +539,7 @@ void AmsConfiguration::setVccMultiplier(double vccMultiplier) {
 }
 
 // Update Egil 7 sep 2020
-#if defined(ESP32)
+#if defined(HW_ESP32_POW_2_1)
 void AmsConfiguration::setVccResistorGnd(double vccResistorGnd) {
 	config.vccResistorGnd = vccResistorGnd;
 }
@@ -604,8 +604,24 @@ double AmsConfiguration::getTempAnalogMillivoltPerC() {
 	return config.tempAnalogMillivoltPerC;
 }
 
+void AmsConfiguration::setEncryptionKeyArray(uint8_t* key) {
+	for (int i=0 ; i<32 ; i++)
+		config.encryptionKeyArray[i] = key[i];
+}
+
+void AmsConfiguration::getEncryptionKeyArray(uint8_t* key) {
+	for (int i=0 ; i<32 ; i++)
+		key[i] = config.encryptionKeyArray[i];
+}
+
+boolean AmsConfiguration::isPairedWithReceiver(){
+// Shall be set to TRUE if paired (if isPairedFlag[7] == "Paired")
+	return strcmp((const char *)config.isPairedFlag, "Paired") == 0;
+}
+
+
 #endif
-// END Update Egil 7 sep 2020
+// END Update Egil sep 2020
 
 double AmsConfiguration::getVccBootLimit() {
 	return config.vccBootLimit > 0 ? config.vccBootLimit / 10.0 : 0;
@@ -1087,8 +1103,8 @@ void AmsConfiguration::print(Print* debugger)
 	debugger->printf("Temperature pin:      %i\r\n", this->getTempSensorPin());
 	Serial.flush();
 
-	// Update Egil 7 sep 2020
-	#if defined(ESP32)
+	// Update Egil sep 2020
+	#if defined(HW_ESP32_POW_2_1)
 	debugger->printf("Vcc resistor GND:     %l\r\n", this->getVccResistorGnd());
 	debugger->printf("Vcc resistor Vcc:     %l\r\n", this->getVccResistorVcc());
 	debugger->printf("ADC channel Vcc:      %i\r\n", this->getAdcChannelVcc());
@@ -1099,7 +1115,7 @@ void AmsConfiguration::print(Print* debugger)
 	debugger->printf("Temp sensor mV/degC:  %f\r\n", this->getTempAnalogMillivoltPerC());
 	Serial.flush();
 	#endif
-	// END Update Egil 7 sep 2020
+	// END Update Egil sep 2020
 
 	debugger->printf("Vcc pin:              %i\r\n", this->getVccPin());
 	debugger->printf("Vcc multiplier:       %f\r\n", this->getVccMultiplier());

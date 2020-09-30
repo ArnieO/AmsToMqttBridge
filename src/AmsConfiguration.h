@@ -54,8 +54,8 @@ struct ConfigObject {
 	uint16_t vccMultiplier;
 	uint8_t vccBootLimit;
 
-	// Update Egil 7 sep 2020
-	#if defined(ESP32)
+	// Update Egil sep 2020
+	#if defined(HW_ESP32_POW_2_1)
 	double vccResistorGnd;
 	double vccResistorVcc;
 	adc1_channel_t adcChannelVcc;
@@ -64,8 +64,10 @@ struct ConfigObject {
 	int adcAverageLength;
 	int tempAnalogMillivoltZeroC;
 	double tempAnalogMillivoltPerC;
+	uint8_t encryptionKeyArray[32];
+	uint8_t isPairedFlag[7]; // Shall contain "Paired" if paired
 	#endif
-	// END Update Egil 7 sep 2020
+	// END Update Egil sep 2020
 
 	uint16_t domoELIDX;
 	uint16_t domoVL1IDX;
@@ -267,7 +269,7 @@ public:
 	void setVccMultiplier(double vccMultiplier);
 
 	// Update Egil 7 sep 2020
-	#if defined(ESP32)
+	#if defined(HW_ESP32_POW_2_1)
 	void setVccResistorGnd(double vccResistorGnd);
 	double getVccResistorGnd();
     void setVccResistorVcc(double vccResistorVcc);
@@ -284,6 +286,9 @@ public:
 	int getTempAnalogMillivoltZeroC();
     void setTempAnalogMillivoltPerC(double tempAnalogMillivoltPerC);
 	double getTempAnalogMillivoltPerC();
+	void setEncryptionKeyArray(uint8_t* key);
+	void getEncryptionKeyArray(uint8_t* key);
+	boolean isPairedWithReceiver();
 	#endif
 	// END Update Egil 7 sep 2020
 
@@ -384,18 +389,20 @@ private:
 		100, // Multiplier
 		0, // Boot limit
 		
-		// Update Egil 7 sep 2020
-		#if defined(ESP32)
-			22.0,
-			33.0,
-			ADC1_GPIO35_CHANNEL,
-			ADC1_GPIO34_CHANNEL,
-			ADC_ATTEN_DB_6,
-			100,
-			400,
-			19.5,
+		// Update Egil sep 2020
+		#if defined(HW_ESP32_POW_2_1)
+		22.0,
+		33.0,
+		ADC1_GPIO35_CHANNEL,
+		ADC1_GPIO34_CHANNEL,
+		ADC_ATTEN_DB_6,
+		100,
+		400,
+		19.5,
+		"",
+		"",
 		#endif
-		// END Update Egil 7 sep 2020
+		// END Update Egil sep 2020
 
 		//Domoticz
 		0, // ELIDX
@@ -412,6 +419,7 @@ private:
 		0xFF, // Analog temp sensor
 		// 894 bytes
 	};
+
 	bool wifiChanged, mqttChanged, meterChanged = true, domoChanged, ntpChanged;
 
 	uint8_t tempSensorCount = 0;

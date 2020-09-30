@@ -94,11 +94,10 @@ unsigned int HwTools::getAdcRaw(adc1_channel_t adcChannel, adc_atten_t adcAtten,
 
 double HwTools::getAdcVcc(adc1_channel_t adcChannel, unsigned long resistorGnd, unsigned long resistorVcc, unsigned int averageLength) {
     esp_adc_cal_characteristics_t *adcChars;
-    esp_adc_cal_value_t valType;
 
     //Characterize ADC
     adcChars = (esp_adc_cal_characteristics_t*) calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    valType = esp_adc_cal_characterize(ADC_UNIT_1, adcAtten, ADC_WIDTH_BIT_12, 1100, adcChars);
+    esp_adc_cal_value_t valType = esp_adc_cal_characterize(ADC_UNIT_1, adcAtten, ADC_WIDTH_BIT_12, 1100, adcChars);
 
     //Read ADC
     unsigned int avgAdcRaw = getAdcRaw(adcChannel, adcAtten, adcAverageLength);
@@ -108,11 +107,10 @@ double HwTools::getAdcVcc(adc1_channel_t adcChannel, unsigned long resistorGnd, 
 
 double HwTools::getAdcTemp(adc1_channel_t adcChannel, int millivoltZeroC, double millivoltPerC, int adcAverageLength) {
     esp_adc_cal_characteristics_t *adcChars;
-    esp_adc_cal_value_t valType;
 
     //Characterize ADC
     adcChars = (esp_adc_cal_characteristics_t*) calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    valType = esp_adc_cal_characterize(ADC_UNIT_1, adcAtten , ADC_WIDTH_BIT_12, 1100, adcChars);
+    esp_adc_cal_value_t valType = esp_adc_cal_characterize(ADC_UNIT_1, adcAtten , ADC_WIDTH_BIT_12, 1100, adcChars);
 
     //Read ADC
     unsigned int avgAdcRaw = getAdcRaw(adcChannel, adcAtten, adcAverageLength);
