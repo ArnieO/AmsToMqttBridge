@@ -56,27 +56,12 @@ uint8_t* public_key = NULL;
 // Encryption key used to encrypt payload. Ideally this would be saved to EEPROM after handshake to be able to reload after reboot
 uint8_t* encryption_key = NULL;
 
-/*
-void printByteArray(byte arr[], int size)
-{
-  for (int i = 0; i < size; i++)
-  {
-    Serial.print(arr[i]);
-    Serial.print(" ");
-  }
-  Serial.println();
-}
-*/
-
 void mbus_hexdump(uint8_t* buf, int len) {
     Serial.printf("DUMP (%db) [ ", len); 
     for(uint8_t* p = buf; p-buf < len; ++p)
         Serial.printf("%02X ", *p);
     Serial.print("]\n\n");
 }
-
-
-
 
 esp_now_peer_info_t peerInfo;
 amsEspNowDataStruct amsEspNowData;

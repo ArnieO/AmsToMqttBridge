@@ -6,40 +6,14 @@
 
 struct ConfigObject {
 	uint8_t boardType;
-	char wifiSsid[32];
-	char wifiPassword[64];
-    char wifiIp[15];
-    char wifiGw[15];
-    char wifiSubnet[15];
-	char wifiDns1[15];
-	char wifiDns2[15];
-	char wifiHostname[32];
-	char mqttHost[128];
-	uint16_t mqttPort;
-	char mqttClientId[32];
-	char mqttPublishTopic[64];
-	char mqttSubscribeTopic[64];
-	char mqttUser[64];
-	char mqttPassword[64];
-	uint8_t mqttPayloadFormat;
-	bool mqttSsl;
-	uint8_t authSecurity;
-	char authUser[64];
-	char authPassword[64];
-	
 	uint8_t meterType;
-	uint8_t distributionSystem;
-	uint8_t mainFuse;
-	uint8_t productionCapacity;
 	uint8_t meterEncryptionKey[16];
 	uint8_t meterAuthenticationKey[16];
-	bool substituteMissing;
+	bool substituteMissing;	// If set to "true": Calculate I2 if I2 is empty (happens on meters on IT system). Calculation is done in AmsData.cpp.
 	bool sendUnknown;
-
 	bool debugTelnet;
 	bool debugSerial;
 	uint8_t debugLevel;
-
 	uint8_t hanPin;
 	uint8_t apPin;
 	uint8_t ledPin;
@@ -48,14 +22,8 @@ struct ConfigObject {
 	uint8_t ledPinGreen;
 	uint8_t ledPinBlue;
 	bool ledRgbInverted;
-	uint8_t tempSensorPin;
-	uint8_t vccPin;
-	int16_t vccOffset;
-	uint16_t vccMultiplier;
 	uint8_t vccBootLimit;
 
-	// Update Egil sep 2020
-	#if defined(HW_ESP32_POW_2_1)
 	double vccResistorGnd;
 	double vccResistorVcc;
 	adc1_channel_t adcChannelVcc;
@@ -66,82 +34,7 @@ struct ConfigObject {
 	double tempAnalogMillivoltPerC;
 	uint8_t encryptionKeyArray[32];
 	uint8_t isPairedFlag[7]; // Shall contain "Paired" if paired
-	#endif
-	// END Update Egil sep 2020
-
-	uint16_t domoELIDX;
-	uint16_t domoVL1IDX;
-	uint16_t domoVL2IDX;
-	uint16_t domoVL3IDX;
-	uint16_t domoCL1IDX;
-
-	bool mDnsEnable;
-	bool ntpEnable;
-	bool ntpDhcp;
-	int16_t ntpOffset;
-	int16_t ntpSummerOffset;
-	char ntpServer[64];
-
-	uint8_t tempAnalogSensorPin;
-};
-
-struct ConfigObject82 {
-	uint8_t boardType;
-	char wifiSsid[32];
-	char wifiPassword[64];
-    char wifiIp[15];
-    char wifiGw[15];
-    char wifiSubnet[15];
-	char wifiDns1[15];
-	char wifiDns2[15];
-	char wifiHostname[32];
-	char mqttHost[128];
-	uint16_t mqttPort;
-	char mqttClientId[32];
-	char mqttPublishTopic[64];
-	char mqttSubscribeTopic[64];
-	char mqttUser[64];
-	char mqttPassword[64];
-	uint8_t mqttPayloadFormat;
-	bool mqttSsl;
-	uint8_t authSecurity;
-	char authUser[64];
-	char authPassword[64];
-	uint8_t meterType;
-	uint8_t distributionSystem;
-	uint8_t mainFuse;
-	uint8_t productionCapacity;
-	bool substituteMissing;
-	bool sendUnknown;
-
-	bool debugTelnet;
-	bool debugSerial;
-	uint8_t debugLevel;
-
-	uint8_t hanPin;
-	uint8_t apPin;
-	uint8_t ledPin;
-	bool ledInverted;
-	uint8_t ledPinRed;
-	uint8_t ledPinGreen;
-	uint8_t ledPinBlue;
-	bool ledRgbInverted;
-	uint8_t tempSensorPin;
-	uint8_t vccPin;
-	uint16_t vccMultiplier;
-	uint8_t vccBootLimit;
-
-	uint16_t domoELIDX;
-	uint16_t domoVL1IDX;
-	uint16_t domoVL2IDX;
-	uint16_t domoVL3IDX;
-	uint16_t domoCL1IDX;
-};
-
-struct TempSensorConfig {
-	uint8_t address[8];
-	char name[16];
-	bool common;
+	
 };
 
 class AmsConfiguration {
@@ -154,73 +47,8 @@ public:
 
 	uint8_t getBoardType();
 	void setBoardType(uint8_t boardType);
-	
-	char* getWifiSsid();
-	void setWifiSsid(const char* wifiSsid);
-	char* getWifiPassword();
-	void setWifiPassword(const char* wifiPassword);
-	char* getWifiIp();
-	void setWifiIp(const char* wifiIp);
-	char* getWifiGw();
-	void setWifiGw(const char* wifiGw);
-	char* getWifiSubnet();
-	void setWifiSubnet(const char* wifiSubnet);
-	char* getWifiDns1();
-	void setWifiDns1(const char* wifiDns1);
-	char* getWifiDns2();
-	void setWifiDns2(const char* wifiDns1);
-	char* getWifiHostname();
-	void setWifiHostname(const char* wifiHostname);
-	void clearWifi();
-	void clearWifiIp();
-
-	bool isWifiChanged();
-	void ackWifiChange();
-
-	char* getMqttHost();
-	void setMqttHost(const char* mqttHost);
-	uint16_t getMqttPort();
-	void setMqttPort(uint16_t mqttPort);
-	char* getMqttClientId();
-	void setMqttClientId(const char* mqttClientId);
-	char* getMqttPublishTopic();
-	void setMqttPublishTopic(const char* mqttPublishTopic);
-	char* getMqttSubscribeTopic();
-	void setMqttSubscribeTopic(const char* mqttSubscribeTopic);
-	char* getMqttUser();
-	void setMqttUser(const char* mqttUser);
-	char* getMqttPassword();
-	void setMqttPassword(const char* mqttPassword);
-	uint8_t getMqttPayloadFormat();
-	void setMqttPayloadFormat(uint8_t mqttPayloadFormat);
-	bool isMqttSsl();
-	void setMqttSsl(bool mqttSsl);
-	void clearMqtt();
-
-	void setMqttChanged();
-	bool isMqttChanged();
-	void ackMqttChange();
-
-	byte getAuthSecurity();
-	void setAuthSecurity(byte authSecurity);
-	char* getAuthUser();
-	void setAuthUser(const char* authUser);
-	char* getAuthPassword();
-	void setAuthPassword(const char* authPassword);
-	void clearAuth();
-
 	uint8_t getMeterType();
 	void setMeterType(uint8_t meterType);
-	uint8_t getDistributionSystem();
-	void setDistributionSystem(uint8_t distributionSystem);
-	uint8_t getMainFuse();
-	void setMainFuse(uint8_t mainFuse);
-	uint8_t getProductionCapacity();
-	void setProductionCapacity(uint8_t productionCapacity);
-	uint8_t* getMeterEncryptionKey();
-	void setMeterEncryptionKey(uint8_t* meterEncryptionKey);
-	uint8_t* getMeterAuthenticationKey();
-	void setMeterAuthenticationKey(uint8_t* meterAuthenticationKey);
 	bool isSubstituteMissing();
 	void setSubstituteMissing(bool substituteMissing);
 	bool isSendUnknown();
@@ -257,19 +85,6 @@ public:
 	bool isLedRgbInverted();
 	void setLedRgbInverted(bool ledRgbInverted);
 
-	uint8_t getTempSensorPin();
-	void setTempSensorPin(uint8_t tempSensorPin);
-	uint8_t getTempAnalogSensorPin();
-	void setTempAnalogSensorPin(uint8_t tempSensorPin);
-	uint8_t getVccPin();
-	void setVccPin(uint8_t vccPin);
-	double getVccOffset();
-	void setVccOffset(double vccOffset);
-	double getVccMultiplier();
-	void setVccMultiplier(double vccMultiplier);
-
-	// Update Egil 7 sep 2020
-	#if defined(HW_ESP32_POW_2_1)
 	void setVccResistorGnd(double vccResistorGnd);
 	double getVccResistorGnd();
     void setVccResistorVcc(double vccResistorVcc);
@@ -286,56 +101,18 @@ public:
 	int getTempAnalogMillivoltZeroC();
     void setTempAnalogMillivoltPerC(double tempAnalogMillivoltPerC);
 	double getTempAnalogMillivoltPerC();
-	void setEncryptionKeyArray(uint8_t* key);
-	void getEncryptionKeyArray(uint8_t* key);
+	void setEncryptionKey(uint8_t* key);
+	uint8_t* getEncryptionKey();
 	boolean isPairedWithReceiver();
-	#endif
-	// END Update Egil 7 sep 2020
-
+	void setIsPairedFlag();
+	
 	double getVccBootLimit();
 	void setVccBootLimit(double vccBootLimit);
 
 	void print(Print* debugger);
 
-	uint16_t getDomoELIDX();
-	uint16_t getDomoVL1IDX();
-	uint16_t getDomoVL2IDX();
-	uint16_t getDomoVL3IDX();
-	uint16_t getDomoCL1IDX();
-	void setDomoELIDX(uint16_t domoELIDX);
-	void setDomoVL1IDX(uint16_t domoVL1IDX);
-	void setDomoVL2IDX(uint16_t domoVL2IDX);
-	void setDomoVL3IDX(uint16_t domoVL3IDX);
-	void setDomoCL1IDX(uint16_t domoCL1IDX);
-	void clearDomo();
-
-	bool isDomoChanged();
-	void ackDomoChange();
-
-	bool isMdnsEnable();
-	void setMdnsEnable(bool mdnsEnable);
-	
-	bool isNtpEnable();
-	void setNtpEnable(bool ntpEnable);
-	bool isNtpDhcp();
-	void setNtpDhcp(bool ntpDhcp);
-	int32_t getNtpOffset();
-	void setNtpOffset(uint32_t ntpOffset);
-	int32_t getNtpSummerOffset();
-	void setNtpSummerOffset(uint32_t ntpSummerOffset);
-	char* getNtpServer();
-	void setNtpServer(const char* ntpServer);
-	void clearNtp();
-
-	bool isNtpChanged();
-	void ackNtpChange();
-
 	uint8_t getTempSensorCount();
-	TempSensorConfig* getTempSensorConfig(uint8_t i);
-	void updateTempSensorConfig(uint8_t address[8], const char name[32], bool common);
-
-    bool isSensorAddressEqual(uint8_t a[8], uint8_t b[8]);
-
+	
 	void clear();
 
 protected:
@@ -344,33 +121,10 @@ private:
 	int configVersion = 0;
 	ConfigObject config {
 		0, // Board type
-		"", // SSID
-		"", // PSK
-		"", // IP
-		"", // GW
-		"", // Subnet
-		"", // DNS 1
-		"", // DNS 2
-		"", // Hostname
-		"", // MQTT host
-		1883, // Port
-		"", // Client ID
-		"", // Publish topic
-		"", // Subscribe topic
-		"", // Username
-		"", // Password
-		0, // Format
-		false, // SSL
-		0, // Web security
-		"", // Username
-		"", // Password
 		0, // Meter type
-		0, // Distribution system
-		0, // Main fuse
-		0, // Production capacity
 		{}, // Encryption key
 		{}, // Authentication key
-		false, // Substitute
+		true, // Substitute I2 if I2 is empty (happens on meters on IT system)
 		false, // Send unknown
 		false, // Debug telnet
 		false, // Debug serial
@@ -378,53 +132,31 @@ private:
 		0x03, // HAN pin
 		0xFF, // AP pin
 		0x02, // LED pin
-		true, // Inverted
+		true, // Inverted on-board LED
 		0xFF, // Red
 		0xFF, // Green
 		0xFF, // Blue
-		true, // Inverted
-		0xFF, // Temp sensor
-		0xFF, // Vcc
-		0, // Offset
-		100, // Multiplier
-		0, // Boot limit
+		true, // Inverted RGB LED
+		0, // Vcc Boot limit
 		
-		// Update Egil sep 2020
-		#if defined(HW_ESP32_POW_2_1)
-		22.0,
-		33.0,
-		ADC1_GPIO35_CHANNEL,
-		ADC1_GPIO34_CHANNEL,
-		ADC_ATTEN_DB_6,
-		100,
-		400,
-		19.5,
-		"",
-		"",
-		#endif
-		// END Update Egil sep 2020
-
-		//Domoticz
-		0, // ELIDX
-		0, // VL1IDX
-		0, // VL2IDX
-		0, // VL3IDX
-		0, // CL1IDX
-		true, // mDNS
-		true, // NTP
-		true, // NTP DHCP
-		360, // Timezone (*10)
-		360, // Summertime offset (*10)
-		"pool.ntp.org", // NTP server
-		0xFF, // Analog temp sensor
-		// 894 bytes
+		22.0,	// vccResistorGnd
+		33.0,	// vccResistorVcc
+		ADC1_GPIO35_CHANNEL,	// adcChannelVcc
+		ADC1_GPIO34_CHANNEL,	// adcChannelTemp
+		ADC_ATTEN_DB_6,			// adcAtten
+		100,	// adcAverageLength
+		400,	// tempAnalogMillivoltZeroC
+		19.5,	// tempAnalogMillivoltPerC
+		"",		// encryptionKeyArray[32]
+		"",		// isPairedFlag[7] ;  Shall contain "Paired" if paired
+		
+		// 894 bytes ---> gammelt tall, ER VEL NÅ FEIL?
 	};
 
 	bool wifiChanged, mqttChanged, meterChanged = true, domoChanged, ntpChanged;
 
 	uint8_t tempSensorCount = 0;
-	TempSensorConfig* tempSensors[32];
-
+	
 	const int EEPROM_SIZE = 1024 * 3;
 	const int EEPROM_CHECK_SUM = 83; // Used to check if config is stored. Change if structure changes
 	const int EEPROM_CONFIG_ADDRESS = 0;
