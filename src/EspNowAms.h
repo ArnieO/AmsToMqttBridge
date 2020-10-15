@@ -2,6 +2,7 @@
 #include "encryption.h"
 #include "AmsConfiguration.h"
 
+/*
 typedef struct {
     short espNowDataStructVer=1; 
     int transmitterVcc;  // Transmitter ESP Vcc * 10 (Vcc with one decimal)
@@ -10,7 +11,7 @@ typedef struct {
     char meterMake[15];
     char meterModel[25];
     char meterId[25];
-    unsigned long meterTimestamp;
+    unsigned int meterTimestamp;
     unsigned int activeImportPower;
     unsigned int activeExportPower;
     unsigned int reactiveImportPower;
@@ -21,12 +22,13 @@ typedef struct {
     unsigned int L1Voltage;
     unsigned int L2Voltage;
     unsigned int L3Voltage;
-    unsigned long meterCounterTimestamp;
+    unsigned int meterCounterTimestamp;
     unsigned int activeImportCounter;
     unsigned int activeExportCounter;
     unsigned int reactiveImportCounter;
     unsigned int reactiveExportCounter;
 } amsEspNowDataStruct;
+*/
 
 static uint8_t broadcastAddress[] = {0x24, 0x6F, 0x28, 0x96, 0x66, 0xCC };   //ESP-NOW receiver MAC adr (TTGO-display)
 
@@ -64,4 +66,4 @@ void mbus_hexdump(uint8_t* buf, int len) {
 }
 
 esp_now_peer_info_t peerInfo;
-amsEspNowDataStruct amsEspNowData;
+//amsEspNowDataStruct amsEspNowData;

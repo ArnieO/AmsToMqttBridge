@@ -225,8 +225,8 @@ void espLightSleep()
 		// List2 at xx:01:10
 		// Then all List1 payloads each 10 seconds until next xx:00:40
 
-		int second = amsEspNowData.meterTimestamp % 60;
-		int minute = (amsEspNowData.meterTimestamp / 60) % 60;
+		int second = dataFrame.meterTimestamp % 60;
+		int minute = (dataFrame.meterTimestamp / 60) % 60;
 		long sleepDuration = 10; // microseconds
 
 		Serial.print("Timestamp: ");
@@ -647,50 +647,35 @@ boolean readHanPort() // returnerer TRUE dersom det har kommet nye data.
 				Serial.print("hw.getAdcTemp()= ");
 				Serial.println(hw.getAdcTemp(config.getAdcChannelTemp(), config.getTempAnalogMillivoltZeroC(), config.getTempAnalogMillivoltPerC(), config.getAdcAverageLength()));
 
-				//static amsEspNowDataStruct amsEspNowData;
-				amsEspNowData.espNowDataStructVer = 1; // Version number for the ESP-NOW data structure
-				amsEspNowData.transmitterVcc = (int)(100.0 * hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength()));
-				dataFrame.transmitterVcc = amsEspNowData.transmitterVcc;
-				amsEspNowData.transmitterTemp = (int)(10.0 * hw.getAdcTemp(config.getAdcChannelTemp(), config.getTempAnalogMillivoltZeroC(), config.getTempAnalogMillivoltPerC(), config.getAdcAverageLength()));
-				dataFrame.transmitterTemp = amsEspNowData.transmitterTemp;
-				strcpy(amsEspNowData.transmitterUptime, uptimeString);
+				dataFrame.transmitterVcc = (int16_t)(100.0 * hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength()));;
+				dataFrame.transmitterTemp = (int16_t)(10.0 * hw.getAdcTemp(config.getAdcChannelTemp(), config.getTempAnalogMillivoltZeroC(), config.getTempAnalogMillivoltPerC(), config.getAdcAverageLength()));
 				strcpy(dataFrame.transmitterUptime, uptimeString); // Uptime time format transmitted: "hhhh:mm:ss"
-				strcpy(amsEspNowData.meterMake, meterMake.c_str());
 				strcpy(dataFrame.manufacturer, meterMake.c_str());
-				strcpy(amsEspNowData.meterModel, data.getMeterType().c_str());
 				strcpy(dataFrame.model, data.getMeterType().c_str());
-				strcpy(amsEspNowData.meterId, data.getMeterId().c_str());
 				strcpy(dataFrame.identifier, data.getMeterId().c_str());
-				amsEspNowData.meterTimestamp = data.getPackageTimestamp();
-				dataFrame.unixtime = data.getPackageTimestamp();
-				amsEspNowData.activeImportPower = data.getActiveImportPower();
 				dataFrame.activeImport = data.getActiveImportPower();
-				amsEspNowData.activeExportPower = data.getActiveExportPower();
 				dataFrame.activeExport = data.getActiveExportPower();
-				amsEspNowData.reactiveImportPower = data.getReactiveImportPower();
-				amsEspNowData.reactiveExportPower = data.getReactiveExportPower();
-				amsEspNowData.L1Current = (unsigned int)(data.getL1Current() * 100);
-				dataFrame.L1Current = amsEspNowData.L1Current;
-				amsEspNowData.L2Current = (unsigned int)(data.getL2Current() * 100);
-				dataFrame.L2Current = amsEspNowData.L2Current;
-				amsEspNowData.L3Current = (unsigned int)(data.getL2Current() * 100);
-				dataFrame.L3Current = amsEspNowData.L3Current;
-				amsEspNowData.L1Voltage = (unsigned int)(data.getL1Voltage() * 10);
-				dataFrame.L1Voltage = amsEspNowData.L1Voltage;
-				amsEspNowData.L2Voltage = (unsigned int)(data.getL2Voltage() * 10);
-				dataFrame.L2Voltage = amsEspNowData.L2Voltage;
-				amsEspNowData.L3Voltage = (unsigned int)(data.getL3Voltage() * 10);
-				dataFrame.L3Voltage = amsEspNowData.L3Voltage;
+				
+				// Some AMS meters deliver timestamp via "Package timestamp", some via "Meter timestamp".
+				// To be sure to get a valid timestamp, use one of them that is not zero.
+				if (data.getPackageTimestamp() != 0)
+					dataFrame.meterTimestamp = data.getPackageTimestamp();
+				else
+					dataFrame.meterTimestamp = data.getMeterTimestamp();
+				
+				dataFrame.L1Current = data.getL1Current() * 100;
+				dataFrame.L2Current = data.getL2Current() * 100;
+				dataFrame.L3Current = data.getL2Current() * 100;
+				dataFrame.L1Voltage = data.getL1Voltage() * 10;
+				dataFrame.L2Voltage = data.getL2Voltage() * 10;
+				dataFrame.L3Voltage = data.getL3Voltage() * 10;
 				if (data.getActiveImportCounter() > 0)
 				{ //Only updated when received counter data
-					amsEspNowData.meterCounterTimestamp = (unsigned long)data.getPackageTimestamp();
-					dataFrame.meterCounterTimestamp = amsEspNowData.meterCounterTimestamp;
-					amsEspNowData.activeImportCounter = (unsigned long)data.getActiveImportCounter();
-					dataFrame.activeImportCounter = amsEspNowData.activeImportCounter;
-					amsEspNowData.activeExportCounter = (unsigned long)data.getActiveExportCounter();
-					dataFrame.activeExportCounter = amsEspNowData.activeExportCounter;
-					amsEspNowData.reactiveImportCounter = (unsigned long)data.getReactiveImportCounter();
-					amsEspNowData.reactiveExportCounter = (unsigned long)data.getReactiveExportCounter();
+					dataFrame.meterCounterTimestamp = dataFrame.meterTimestamp;
+					dataFrame.activeImportCounter = data.getActiveImportCounter();
+					dataFrame.activeExportCounter = data.getActiveExportCounter();
+					dataFrame.reactiveImportCounter = data.getReactiveImportCounter();
+					dataFrame.reactiveExportCounter = data.getReactiveExportCounter();
 				}
 			}
 		}
@@ -721,7 +706,7 @@ boolean readHanPort() // returnerer TRUE dersom det har kommet nye data.
 						if (Debug.isActive(RemoteDebug::INFO))
 							debugI("Detected Kaifa meter");
 						if (config.save())
-							debugI("Succsessfully saved MeterType to EEPROM");
+							debugI("Successfully saved MeterType to EEPROM");
 						else
 							debugI("FAILED to save MeterType to EEPROM");
 						break;
@@ -732,7 +717,7 @@ boolean readHanPort() // returnerer TRUE dersom det har kommet nye data.
 						if (Debug.isActive(RemoteDebug::INFO))
 							debugI("Detected Aidon meter");
 						if (config.save())
-							debugI("Succsessfully saved MeterType to EEPROM");
+							debugI("Successfully saved MeterType to EEPROM");
 						else
 							debugI("FAILED to save MeterType to EEPROM");
 						break;
@@ -743,7 +728,7 @@ boolean readHanPort() // returnerer TRUE dersom det har kommet nye data.
 						if (Debug.isActive(RemoteDebug::INFO))
 							debugI("Detected Kamstrup meter");
 						if (config.save())
-							debugI("Succsessfully saved MeterType to EEPROM");
+							debugI("Successfully saved MeterType to EEPROM");
 						else
 							debugI("FAILED to save MeterType to EEPROM");
 						break;

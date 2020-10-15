@@ -34,11 +34,10 @@ typedef struct AMSNOW_Frame_Data
     char manufacturer[10];
     char model[20];
     char identifier[20];
-    uint32_t unixtime;
     uint16_t activeImport;
     uint16_t activeExport;
-    uint16_t transmitterVcc;  // Transmitter ESP Vcc * 100 (Vcc with two decimals)
-    uint16_t transmitterTemp; // Temperature sensor value on transmitter ESP * 10 (temperature with one decimal)
+    int16_t transmitterVcc;  // Transmitter ESP Vcc * 100 (Vcc with two decimals)
+    int16_t transmitterTemp; // Temperature sensor value on transmitter ESP * 10 (temperature with one decimal)
     char transmitterUptime[11];
     uint32_t meterTimestamp;
     uint16_t L1Current;
@@ -48,10 +47,10 @@ typedef struct AMSNOW_Frame_Data
     uint16_t L2Voltage;
     uint16_t L3Voltage;
     uint32_t meterCounterTimestamp;
-    uint16_t activeImportCounter;
-    uint16_t activeExportCounter;
-    uint16_t reactiveImportCounter;
-    uint16_t reactiveExportCounter;
+    uint32_t activeImportCounter;
+    uint32_t activeExportCounter;
+    uint32_t reactiveImportCounter;
+    uint32_t reactiveExportCounter;
 } __attribute__((packed)) AMSNOW_Frame_Data;
 
 typedef struct AMSNOW_Frame_Encrypted

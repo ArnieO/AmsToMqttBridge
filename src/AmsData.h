@@ -19,7 +19,7 @@ public:
 
     unsigned long getLastUpdateMillis();
 
-    unsigned long getPackageTimestamp();
+    uint32_t getPackageTimestamp();
 
     int getListType();
 
@@ -27,12 +27,12 @@ public:
     String getMeterId();
     String getMeterType();
 
-    unsigned long getMeterTimestamp();
+    uint32_t getMeterTimestamp();
 
-    int getActiveImportPower();
-    int getReactiveImportPower();
-    int getActiveExportPower();
-    int getReactiveExportPower();
+    uint16_t getActiveImportPower();
+    uint16_t getReactiveImportPower();
+    uint16_t getActiveExportPower();
+    uint16_t getReactiveExportPower();
 
     double getL1Voltage();
     double getL2Voltage();
@@ -42,19 +42,19 @@ public:
     double getL2Current();
     double getL3Current();
 
-    double getActiveImportCounter();
-    double getReactiveImportCounter();
-    double getActiveExportCounter();
-    double getReactiveExportCounter();
+    uint32_t getActiveImportCounter();
+    uint32_t getReactiveImportCounter();
+    uint32_t getActiveExportCounter();
+    uint32_t getReactiveExportCounter();
 
     bool isThreePhase();
 
 private:
     unsigned long lastUpdateMillis = 0;
     int listType = 0;
-    unsigned long packageTimestamp = 0;
+    uint32_t packageTimestamp = 0;
     String listId, meterId, meterType;
-    unsigned long meterTimestamp = 0;
+    uint32_t meterTimestamp = 0;
     int activeImportPower = 0, reactiveImportPower = 0, activeExportPower = 0, reactiveExportPower = 0;
     double l1voltage = 0, l2voltage = 0, l3voltage = 0, l1current = 0, l2current = 0, l3current = 0;
     double activeImportCounter = 0, reactiveImportCounter = 0, activeExportCounter = 0, reactiveExportCounter = 0;
