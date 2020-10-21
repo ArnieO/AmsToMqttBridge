@@ -1,6 +1,7 @@
 #ifndef _AMSCONFIGURATION_h
 #define _AMSCONFIGURATION_h
 #include <EEPROM.h>
+#include <esp_now.h>
 #include "Arduino.h"
 #include <driver/adc.h>   // Gjør det mulig å bruke mange IDF funksjonsnavn for ADC
 
@@ -34,6 +35,7 @@ struct ConfigObject {
 	double tempAnalogMillivoltPerC;
 	uint8_t encryptionKeyArray[32];
 	uint8_t isPairedFlag[7]; // Shall contain "Paired" if paired
+	esp_now_peer_info_t peerInfo;
 	
 };
 
@@ -105,6 +107,8 @@ public:
 	uint8_t* getEncryptionKey();
 	boolean isPairedWithReceiver();
 	void setIsPairedFlag();
+	void setPeerInfo(uint8_t* master);
+	esp_now_peer_info_t* getPeerInfo();
 	
 	double getVccBootLimit();
 	void setVccBootLimit(double vccBootLimit);

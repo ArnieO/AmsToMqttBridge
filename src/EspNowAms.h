@@ -30,18 +30,21 @@ typedef struct {
 } amsEspNowDataStruct;
 */
 
-static uint8_t broadcastAddress[] = {0x24, 0x6F, 0x28, 0x96, 0x66, 0xCC };   //ESP-NOW receiver MAC adr (TTGO-display)
+static uint8_t broadcastAddress[] = {0x24, 0x6F, 0x28, 0x96, 0x66, 0xCC}; //ESP-NOW receiver MAC adr (TTGO-display)
 
-static void msg_send_cb(const uint8_t* mac, esp_now_send_status_t sendStatus)
+static void now_send_cb(const uint8_t *mac, esp_now_send_status_t sendStatus)
 {
+  Serial.println("Running now_send_cb() ************************************");
   switch (sendStatus)
   {
-    case ESP_NOW_SEND_SUCCESS:
-      Serial.println("Send success"); break;
-    case ESP_NOW_SEND_FAIL:
-      Serial.println("Send Failure"); break;
-    default:
-      break;
+  case ESP_NOW_SEND_SUCCESS:
+    debugI("Send success");
+    break;
+  case ESP_NOW_SEND_FAIL:
+    debugI("Send Failure");
+    break;
+  default:
+    break;
   }
 }
 
@@ -53,16 +56,17 @@ uint8_t master[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 bool hasMaster = false;
 
 // Public key, needed to do handshake if encryption key is not already set
-uint8_t* public_key = NULL;
+uint8_t *public_key = NULL;
 
 // Encryption key used to encrypt payload. Ideally this would be saved to EEPROM after handshake to be able to reload after reboot
-uint8_t* encryption_key = NULL;
+uint8_t *encryption_key = NULL;
 
-void mbus_hexdump(uint8_t* buf, int len) {
-    Serial.printf("DUMP (%db) [ ", len); 
-    for(uint8_t* p = buf; p-buf < len; ++p)
-        Serial.printf("%02X ", *p);
-    Serial.print("]\n\n");
+void mbus_hexdump(uint8_t *buf, int len)
+{
+  Serial.printf("DUMP (%db) [ ", len);
+  for (uint8_t *p = buf; p - buf < len; ++p)
+    Serial.printf("%02X ", *p);
+  Serial.print("]\n\n");
 }
 
 esp_now_peer_info_t peerInfo;

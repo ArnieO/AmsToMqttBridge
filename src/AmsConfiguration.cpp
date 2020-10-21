@@ -318,6 +318,21 @@ void AmsConfiguration::setIsPairedFlag()
 	strcpy((char *)config.isPairedFlag, "Paired");
 }
 
+void AmsConfiguration::setPeerInfo(uint8_t* master)
+{
+	//memcpy(&config.peerInfo, peerInfo, sizeof(config.peerInfo));
+	memcpy(config.peerInfo.peer_addr, master, 6);
+	config.peerInfo.channel = 0;
+	config.peerInfo.ifidx = ESP_IF_WIFI_STA;
+	config.peerInfo.encrypt = false;
+}
+
+esp_now_peer_info_t* AmsConfiguration::getPeerInfo()
+{
+	return &config.peerInfo;
+}
+
+
 void AmsConfiguration::clear()
 {
 	clearMeter();

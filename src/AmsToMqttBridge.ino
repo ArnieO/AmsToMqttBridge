@@ -41,7 +41,6 @@
 
 #include "frames.h"
 #include "encryption.h"
-#include "EspNowAms.h"
 
 #define WEBSOCKET_DISABLED true
 #include "RemoteDebug.h"
@@ -54,6 +53,7 @@ HwTools hw;
 AmsConfiguration config;
 
 RemoteDebug Debug;
+#include "EspNowAms.h"
 
 HanReader hanReader;
 
@@ -62,152 +62,11 @@ Stream *hanSerial;
 int64_t lastData = 0;
 AMSNOW_Frame_Data dataFrame = {AMSNOW_Frame_Type_Data};
 
-void setup()
-{
-	setCpuFrequencyMhz(80); //Reduces power consumption somewhat compared to default 160 MHz
-
-	if(config.hasConfig()) {
-		config.load();
-	}
-
-	config.setHanPin(16);
-	config.setApPin(0);
-	config.setLedPin(0xFF); //ESP32-SOLO-1 has no built-in LED. When set to 0xFF: No signal to any GPIO when attempting to blink built-in LED
-	config.setLedPinRed(13);
-	config.setLedPinGreen(14);
-	config.setLedPinBlue(0xFF);		// Blue LED not used by ESP
-	config.setLedInverted(true);	// LED lights on LOW signal
-	config.setLedRgbInverted(true); // LED lights on LOW signal
-	config.setAdcChannelVcc(ADC1_GPIO35_CHANNEL);
-	config.setAdcChannelTemp(ADC1_GPIO34_CHANNEL);
-	config.setAdcAtten(ADC_ATTEN_DB_6);
-	config.setAdcAverageLength(100);
-	config.setTempAnalogMillivoltZeroC(400); //TMP236 temp sensor
-	config.setTempAnalogMillivoltPerC(19.5); //TMP236 temp sensor
-	
-	delay(10); //Feed watchdog
-
-	hw.setLed(config.getLedPin(), config.isLedInverted());
-	hw.setLedRgb(config.getLedPinRed(), config.getLedPinGreen(), config.getLedPinBlue(), config.isLedRgbInverted());
-	hw.ledBlink(LED_INTERNAL, 1);
-	hw.ledBlink(LED_RED, 1);
-	hw.ledBlink(LED_YELLOW, 1);
-	hw.ledBlink(LED_GREEN, 1);
-	hw.ledBlink(LED_BLUE, 1);
-
-	delay(10); //Feed watchdog
-
-	if (config.getHanPin() == 3)
-	{
-		switch (config.getMeterType())
-		{
-		case METER_TYPE_KAMSTRUP:
-		case METER_TYPE_OMNIPOWER:
-			Serial.begin(2400, SERIAL_8N1);
-			break;
-		default:
-			Serial.begin(2400, SERIAL_8E1);
-			break;
-		}
-	}
-	else
-		Serial.begin(115200);
-
-	if (config.hasConfig() && config.isDebugSerial())
-		Debug.setSerialEnabled(config.isDebugSerial());
-	else
-	{
-#if DEBUG_MODE
-		Debug.setSerialEnabled(true);
-#endif
-	}
-	Serial.println();
-
-	// Everything needing output to Serial must be below this line
-	Serial.println();
-	Serial.println("****************");
-	Serial.println("*  Pow bridge  *");
-	Serial.println("****************");
-
-	if (config.hasConfig())
-	{
-		Serial.println("Stored config found, reading from EEPROM");
-		config.load();
-	}
-
-	// If unit is pared with a receiver, change encryption_key pointer to the array in config
-	if (config.isPairedWithReceiver())
-		encryption_key=config.getEncryptionKey();
-
-	double vcc = hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength());
-
-	if (Debug.isActive(RemoteDebug::INFO))
-	{
-		debugI("AMS bridge started");
-		debugI("Voltage: %.2fV", vcc);
-	}
-
-	double vccBootLimit = config.getVccBootLimit();
-	if (vccBootLimit > 0 && (config.getApPin() == 0xFF || digitalRead(config.getApPin()) == HIGH))
-	{ // Skip if user is holding AP button while booting (HIGH = button is released)
-		if (vcc < vccBootLimit)
-		{
-			if (Debug.isActive(RemoteDebug::INFO))
-			{
-				debugI("Voltage is too low, sleeping");
-				Serial.flush();
-			}
-			ESP.deepSleep(10000000); //Deep sleep to allow output cap to charge up
-		}
-	}
-
-	WiFi.disconnect(true);
-	WiFi.softAPdisconnect(true);
-	WiFi.mode(WIFI_OFF);
-
-	if (Debug.isActive(RemoteDebug::INFO))
-		config.print(&Debug);
-
-	// xTaskCreate(communicationTask, "Comm", 4*1024, NULL, 5, NULL);
-}
-
-int buttonTimer = 0;
-bool buttonActive = false;
-unsigned long longPressTime = 5000;
-bool longPressActive = false;
-
-unsigned long lastTemperatureRead = 0;
-float temperatures[32];
-
-unsigned long lastRead = 0;
-unsigned long lastSuccessfulRead = 0;
-
-unsigned long lastErrorBlink = 0;
-int lastError = 0;
-
-String toHex(uint8_t *in)
-{
-	String hex;
-	for (int i = 0; i < sizeof(in) * 2; i++)
-	{
-		if (in[i] < 0x10)
-		{
-			hex += '0';
-		}
-		hex += String(in[i], HEX);
-	}
-	hex.toUpperCase();
-	return hex;
-}
-
 // Light sleep period is needed for Kamstrup meter to preserve power
 void espLightSleep()
 {
 	delay(10); //Short delay to finish transmit before esp_now_deinit()
-	if (esp_now_deinit() != ESP_OK)
-	{ //De-initialize ESP-NOW. (all information of paired devices will be deleted)
-		Serial.println("esp_now_deinit() failed");
-	}
+	ESP_ERROR_CHECK(esp_now_deinit());
 	WiFi.disconnect(true);
 	WiFi.mode(WIFI_OFF);
 
@@ -258,10 +117,162 @@ void espLightSleep()
 	}
 }
 
+void setup()
+{
+	setCpuFrequencyMhz(80); //Reduces power consumption somewhat compared to default 160 MHz
+
+	if (config.hasConfig())
+	{
+		config.load();
+	}
+
+	config.setHanPin(16);
+	config.setApPin(0);
+	config.setLedPin(0xFF); //ESP32-SOLO-1 has no built-in LED. When set to 0xFF: No signal to any GPIO when attempting to blink built-in LED
+	config.setLedPinRed(13);
+	config.setLedPinGreen(14);
+	config.setLedPinBlue(0xFF);		// Blue LED not used by ESP
+	config.setLedInverted(true);	// LED lights on LOW signal
+	config.setLedRgbInverted(true); // LED lights on LOW signal
+	config.setAdcChannelVcc(ADC1_GPIO35_CHANNEL);
+	config.setAdcChannelTemp(ADC1_GPIO34_CHANNEL);
+	config.setAdcAtten(ADC_ATTEN_DB_6);
+	config.setAdcAverageLength(100);
+	config.setTempAnalogMillivoltZeroC(400); //TMP236 temp sensor
+	config.setTempAnalogMillivoltPerC(19.5); //TMP236 temp sensor
+
+	delay(10); //Feed watchdog
+
+	hw.setLed(config.getLedPin(), config.isLedInverted());
+	hw.setLedRgb(config.getLedPinRed(), config.getLedPinGreen(), config.getLedPinBlue(), config.isLedRgbInverted());
+	hw.ledBlink(LED_INTERNAL, 1);
+	hw.ledBlink(LED_RED, 1);
+	hw.ledBlink(LED_YELLOW, 1);
+	hw.ledBlink(LED_GREEN, 1);
+	hw.ledBlink(LED_BLUE, 1);
+
+	delay(10); //Feed watchdog
+
+	if (config.getHanPin() == 3)
+	{
+		switch (config.getMeterType())
+		{
+		case METER_TYPE_KAMSTRUP:
+		case METER_TYPE_OMNIPOWER:
+			Serial.begin(2400, SERIAL_8N1);
+			break;
+		default:
+			Serial.begin(2400, SERIAL_8E1);
+			break;
+		}
+	}
+	else
+		Serial.begin(115200);
+
+	if (config.hasConfig() && config.isDebugSerial())
+		Debug.setSerialEnabled(config.isDebugSerial());
+	else
+	{
+#if DEBUG_MODE
+		Debug.setSerialEnabled(true);
+#endif
+	}
+	Serial.println();
+
+	// Everything needing output to Serial must be below this line
+	Serial.println();
+	Serial.println("****************");
+	Serial.println("*  Pow bridge  *");
+	Serial.println("****************");
+
+	Serial.print("My MAC-address: ");
+	Serial.println(WiFi.macAddress());
+
+	if (config.hasConfig())
+	{
+		Serial.println("Stored config found, reading from EEPROM");
+		config.load();
+	}
+
+	// If unit is pared with a receiver, change encryption_key pointer to the array in config, and get PeerInfo from config
+	if (config.isPairedWithReceiver())
+	{
+		encryption_key = config.getEncryptionKey();
+		// Display encryption key in console
+		debugI("Common key: ");
+		mbus_hexdump(encryption_key, 32);
+
+		memcpy(&peerInfo, config.getPeerInfo(), sizeof(peerInfo));
+		memcpy(master, peerInfo.peer_addr, 6);
+		debugI("peerInfo.peer_addr= ");
+		mbus_hexdump(peerInfo.peer_addr, 6);
+		mbus_hexdump(master, 6);
+		debugI("peerInfo.lmk= ");
+		mbus_hexdump(peerInfo.lmk, 16);
+		debugI("peerInfo.channel= %d", peerInfo.channel);
+		debugI("peerInfo.ifidx= %d", peerInfo.ifidx);
+		debugI("peerInfo.encrypt= %d", peerInfo.encrypt);
+
+		hasMaster = true;
+	}
+
+	// hasMaster = false;	//Used for debug
+
+	double vcc = hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength());
+
+	if (Debug.isActive(RemoteDebug::INFO))
+	{
+		debugI("AMS bridge started");
+		debugI("Voltage: %.2fV", vcc);
+	}
+
+	// Module to deepsleep if Vcc has not reached vccBootLimit
+	double vccBootLimit = config.getVccBootLimit();
+	if (vccBootLimit > 0 && (config.getApPin() == 0xFF || digitalRead(config.getApPin()) == HIGH))
+	{ // Skip if user is holding AP button while booting (HIGH = button is released)
+		if (vcc < vccBootLimit)
+		{
+			if (Debug.isActive(RemoteDebug::INFO))
+			{
+				debugI("Voltage is too low, sleeping");
+				Serial.flush();
+			}
+			ESP.deepSleep(10000000); //Deep sleep to allow output cap to charge up
+		}
+	}
+
+	WiFi.disconnect(true);
+	WiFi.softAPdisconnect(true);
+	WiFi.mode(WIFI_OFF);
+
+	if (Debug.isActive(RemoteDebug::INFO))
+		config.print(&Debug);
+
+	// xTaskCreate(communicationTask, "Comm", 4*1024, NULL, 5, NULL);
+}
+// END of setup()
+
+int buttonTimer = 0;
+bool buttonActive = false;
+unsigned long longPressTime = 5000;
+bool longPressActive = false;
+
+//unsigned long lastTemperatureRead = 0;
+//float temperatures[32];
+
+unsigned long lastRead = 0;
+unsigned long lastSuccessfulRead = 0;
+
 void loop()
 {
 	Debug.handle();
 	unsigned long now = millis();
+
+	if (!hasMaster)
+		hw.ledOn(LED_YELLOW);
+	else
+		hw.ledOff(LED_YELLOW);
+
 	if (config.getApPin() != 0xFF)
 	{
 		if (digitalRead(config.getApPin()) == LOW)
@@ -275,9 +286,10 @@ void loop()
 			if ((now - buttonTimer > longPressTime) && (longPressActive == false))
 			{
 				longPressActive = true;
-				// Long press not currently used; insert code here. Was: swapWifiMode();
+				hasMaster = false;
 			}
 		}
+		/*
 		else
 		{
 			if (buttonActive == true)
@@ -293,6 +305,7 @@ void loop()
 				buttonActive = false;
 			}
 		}
+		*/
 	}
 
 	if (config.isMeterChanged())
@@ -315,6 +328,7 @@ void loop()
 
 	delay(1); // Needed for auto modem sleep
 }
+// End loop()
 
 void setupHanPort(int pin, int newMeterType)
 {
@@ -398,37 +412,6 @@ void setupHanPort(int pin, int newMeterType)
 	}
 }
 
-void errorBlink()
-{
-	if (lastError == 3)
-		lastError = 0;
-	lastErrorBlink = millis();
-	for (; lastError < 3; lastError++)
-	{
-		switch (lastError)
-		{
-		case 0:
-			if (lastErrorBlink - lastSuccessfulRead > 30000)
-			{
-				hw.ledBlink(LED_RED, 1); // If no message received from AMS in 30 sec, blink once
-				return;
-			}
-			break;
-		case 1:
-			break;
-		case 2:
-			/*
-			if (WiFi.getMode() != WIFI_AP && WiFi.status() != WL_CONNECTED)
-			{
-				hw.ledBlink(LED_RED, 3); // If WiFi not connected, blink three times
-				return;
-			}
-			*/
-			break;
-		}
-	}
-}
-
 // Plumbing ESP-NOW
 static void now_start()
 {
@@ -439,8 +422,9 @@ static void now_start()
 	ESP_ERROR_CHECK(esp_now_init());
 
 	ESP_ERROR_CHECK(esp_now_register_recv_cb(now_recv_cb));
+	ESP_ERROR_CHECK(esp_now_register_send_cb(now_send_cb));
 
-	esp_now_peer_info_t peerInfo;
+	//esp_now_peer_info_t peerInfo;
 	peerInfo.channel = 0;
 	peerInfo.ifidx = ESP_IF_WIFI_STA;
 	peerInfo.encrypt = false;
@@ -467,7 +451,6 @@ static void send_once(uint8_t *peer, const uint8_t *msg, int len, uint16_t wait)
 	//Serial.println("Running send_once()");
 	now_start();
 	ESP_ERROR_CHECK(esp_now_send(peer, msg, len));
-	ESP_LOGD(TAG, "Send result: %d", res);
 	if (wait > 0)
 	{
 		vTaskDelay(wait / portTICK_PERIOD_MS);
@@ -480,7 +463,7 @@ static void send_once(uint8_t *peer, const uint8_t *msg, int len, uint16_t wait)
 // ESP-NOW receive callback
 static void now_recv_cb(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
-	Serial.println("Running now_recv_cb()");
+	Serial.println("Running now_recv_cb()*************************");
 	uint8_t type = *incomingData;
 	ESP_LOGD(TAG, "New incoming message!! %d bytes, type %02X", len, type);
 
@@ -495,21 +478,26 @@ static void now_recv_cb(const uint8_t *mac, const uint8_t *incomingData, int len
 
 		//Copy encryption key to config, then save config to EEPROM
 		config.setEncryptionKey(encryption_key);
-		if (config.save())
-			debugI("Succsessful saved enc_key to EEPROM");
-		else
-			debugI("FAILED to save enc_key to EEPROM");
-			
 
 		// Display encryption key in console
-		ESP_LOGD(TAG, "Common key: ");
+		debugI("Common key: ");
 		mbus_hexdump(encryption_key, 32);
 
 		// Set master mac address
 		memcpy(master, mac, 6);
 		hasMaster = true;
+
+		//Update config before saving to EEPROM
 		config.setIsPairedFlag();
-		config.save();
+		config.setPeerInfo((uint8_t *)master);
+
+		// Copy back to peerInfo
+		memcpy(&peerInfo, config.getPeerInfo(), sizeof(peerInfo));
+
+		if (config.save())
+			debugI("Successfully saved config incl. enc_key to EEPROM");
+		else
+			debugI("FAILED to save config incl. enc_key to EEPROM");
 	}
 }
 
@@ -647,7 +635,8 @@ boolean readHanPort() // returnerer TRUE dersom det har kommet nye data.
 				Serial.print("hw.getAdcTemp()= ");
 				Serial.println(hw.getAdcTemp(config.getAdcChannelTemp(), config.getTempAnalogMillivoltZeroC(), config.getTempAnalogMillivoltPerC(), config.getAdcAverageLength()));
 
-				dataFrame.transmitterVcc = (int16_t)(100.0 * hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength()));;
+				dataFrame.transmitterVcc = (int16_t)(100.0 * hw.getAdcVcc(config.getAdcChannelVcc(), config.getVccResistorGnd(), config.getVccResistorVcc(), config.getAdcAverageLength()));
+				;
 				dataFrame.transmitterTemp = (int16_t)(10.0 * hw.getAdcTemp(config.getAdcChannelTemp(), config.getTempAnalogMillivoltZeroC(), config.getTempAnalogMillivoltPerC(), config.getAdcAverageLength()));
 				strcpy(dataFrame.transmitterUptime, uptimeString); // Uptime time format transmitted: "hhhh:mm:ss"
 				strcpy(dataFrame.manufacturer, meterMake.c_str());
@@ -655,14 +644,14 @@ boolean readHanPort() // returnerer TRUE dersom det har kommet nye data.
 				strcpy(dataFrame.identifier, data.getMeterId().c_str());
 				dataFrame.activeImport = data.getActiveImportPower();
 				dataFrame.activeExport = data.getActiveExportPower();
-				
+
 				// Some AMS meters deliver timestamp via "Package timestamp", some via "Meter timestamp".
 				// To be sure to get a valid timestamp, use one of them that is not zero.
 				if (data.getPackageTimestamp() != 0)
 					dataFrame.meterTimestamp = data.getPackageTimestamp();
 				else
 					dataFrame.meterTimestamp = data.getMeterTimestamp();
-				
+
 				dataFrame.L1Current = data.getL1Current() * 100;
 				dataFrame.L2Current = data.getL2Current() * 100;
 				dataFrame.L3Current = data.getL2Current() * 100;
