@@ -181,9 +181,9 @@ void setup()
 
 	// Everything needing output to Serial must be below this line
 	Serial.println();
-	Serial.println("****************");
-	Serial.println("*  Pow bridge  *");
-	Serial.println("****************");
+	Serial.println("┌───────────────┐");
+	Serial.println("│  Pow bridge   │");
+	Serial.println("└───────────────┘");
 
 	Serial.print("My MAC-address: ");
 	Serial.println(WiFi.macAddress());
@@ -268,10 +268,10 @@ void loop()
 	Debug.handle();
 	unsigned long now = millis();
 
-	if (!hasMaster)
-		hw.ledOn(LED_YELLOW);
-	else
+	if (hasMaster)
 		hw.ledOff(LED_YELLOW);
+	else
+		hw.ledOn(LED_YELLOW);
 
 	if (config.getApPin() != 0xFF)
 	{
@@ -319,8 +319,8 @@ void loop()
 		yield();
 		if (readHanPort())
 		{
-			communication(); // Sends over ESP-NOW
-			if (hasMaster)
+			communication();				// Sends data over ESP-NOW
+			if (hasMaster && !buttonActive) // Do not LightSleep if "AP" button is being pressed
 				espLightSleep();
 			lastRead = now;
 		};
@@ -645,12 +645,15 @@ boolean readHanPort() // returnerer TRUE dersom det har kommet nye data.
 				dataFrame.activeImport = data.getActiveImportPower();
 				dataFrame.activeExport = data.getActiveExportPower();
 
-				// Some AMS meters deliver timestamp via "Package timestamp", some via "Meter timestamp".
-				// To be sure to get a valid timestamp, use one of them that is not zero.
-				if (data.getPackageTimestamp() != 0)
-					dataFrame.meterTimestamp = data.getPackageTimestamp();
-				else
+				// Some AMS meters do not provide "Meter timestamp" in each package.
+				// If "Meter timestamp" is not delivered (== 0), use "Package timestamp"
+				// This ensures all packages are sent to PowDisplay with a time stamp,
+				// and provides a time reference enabling for the timing of LightSleep related
+				// to hourly List from Kamstrup.
+				if (data.getMeterTimestamp() != 0)
 					dataFrame.meterTimestamp = data.getMeterTimestamp();
+				else
+					dataFrame.meterTimestamp = data.getPackageTimestamp();
 
 				dataFrame.L1Current = data.getL1Current() * 100;
 				dataFrame.L2Current = data.getL2Current() * 100;
